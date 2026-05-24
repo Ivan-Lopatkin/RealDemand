@@ -158,29 +158,29 @@ def render_css() -> None:
             display: flex;
             align-items: center;
             justify-content: space-between;
-            gap: 18px;
-            min-height: 72px;
-            margin: 0 -20px 22px;
-            padding: 12px 20px;
+            gap: 14px;
+            min-height: 58px;
+            margin: 0 -20px 16px;
+            padding: 8px 20px;
             border-bottom: 1px solid rgba(16, 24, 40, 0.10);
-            background: rgba(245, 247, 251, 0.92);
+            background: rgba(245, 247, 251, 0.94);
             backdrop-filter: blur(16px);
         }
 
         .rd-brand {
             display: inline-flex;
             align-items: center;
-            gap: 10px;
+            gap: 9px;
             color: var(--rd-ink) !important;
             text-decoration: none !important;
-            font-size: 21px;
+            font-size: 19px;
             font-weight: 900;
             letter-spacing: 0;
         }
 
         .rd-mark {
-            width: 32px;
-            height: 32px;
+            width: 28px;
+            height: 28px;
             display: inline-grid;
             place-items: center;
             border-radius: var(--rd-radius);
@@ -190,8 +190,8 @@ def render_css() -> None:
 
         .rd-mark::after {
             content: "";
-            width: 12px;
-            height: 12px;
+            width: 10px;
+            height: 10px;
             border-radius: 50%;
             background: #fff;
         }
@@ -199,7 +199,7 @@ def render_css() -> None:
         .rd-nav-links {
             display: flex;
             align-items: center;
-            gap: 16px;
+            gap: 14px;
             color: var(--rd-muted);
             font-size: 13px;
             font-weight: 750;
@@ -216,12 +216,12 @@ def render_css() -> None:
 
         .rd-btn,
         .rd-btn:visited {
-            min-height: 42px;
+            min-height: 38px;
             display: inline-flex;
             align-items: center;
             justify-content: center;
             gap: 8px;
-            padding: 0 16px;
+            padding: 0 14px;
             border: 1px solid transparent;
             border-radius: var(--rd-radius);
             background: var(--rd-ink);
@@ -319,6 +319,21 @@ def render_css() -> None:
             height: 8px;
             border-radius: 50%;
             background: var(--rd-green);
+        }
+
+        .rd-section .rd-eyebrow,
+        .rd-faq-grid .rd-eyebrow {
+            min-height: 38px;
+            margin-bottom: 18px;
+            padding: 0 14px;
+            font-size: 15px;
+            letter-spacing: 0.02em;
+        }
+
+        .rd-section .rd-eyebrow::before,
+        .rd-faq-grid .rd-eyebrow::before {
+            width: 10px;
+            height: 10px;
         }
 
         .rd-title-xl {
@@ -1169,12 +1184,33 @@ def render_css() -> None:
             line-height: 1.5;
         }
 
-        .rd-footer {
+        .rd-footer-nav {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 14px;
+            min-height: 58px;
             margin-top: 24px;
-            padding: 20px 0 0;
+            padding: 8px 0 0;
             border-top: 1px solid rgba(16, 24, 40, 0.10);
+        }
+
+        .rd-footer-links {
+            display: flex;
+            align-items: center;
+            gap: 14px;
             color: var(--rd-muted);
             font-size: 13px;
+            font-weight: 750;
+        }
+
+        .rd-footer-links a {
+            color: inherit !important;
+            text-decoration: none !important;
+        }
+
+        .rd-footer-links a:hover {
+            color: var(--rd-ink) !important;
         }
 
         @media (max-width: 1120px) {
@@ -1215,8 +1251,14 @@ def render_css() -> None:
                 margin-right: -14px;
             }
 
-            .rd-nav-links {
+            .rd-nav-links,
+            .rd-footer-links {
                 display: none;
+            }
+
+            .rd-footer-nav {
+                align-items: flex-start;
+                flex-direction: column;
             }
 
             .rd-title-xl {
@@ -1301,6 +1343,7 @@ def render_nav() -> None:
                 <a href="#demo">Демо</a>
                 <a href="#product">Продукт</a>
                 <a href="#pricing">Форматы</a>
+                <a href="#faq">FAQ</a>
             </div>
             <a class="rd-btn" href="mailto:demo@realdemand.ai?subject=Запрос демо RealDemand">Запросить демо</a>
         </nav>
@@ -1676,7 +1719,17 @@ def render_faq_and_final() -> None:
                 </div>
                 <a class="rd-btn" href="mailto:demo@realdemand.ai?subject=Запрос демо RealDemand">Получить демо</a>
             </div>
-            <div class="rd-footer">RealDemand / анализ рынка / спрос / конкуренты / регионы / ранние сигналы</div>
+            <div class="rd-footer-nav">
+                <a class="rd-brand" href="#top"><span class="rd-mark"></span><span>RealDemand</span></a>
+                <div class="rd-footer-links">
+                    <a href="#problem">Проблема</a>
+                    <a href="#demo">Демо</a>
+                    <a href="#product">Продукт</a>
+                    <a href="#pricing">Форматы</a>
+                    <a href="#faq">FAQ</a>
+                </div>
+                <a class="rd-btn secondary" href="mailto:demo@realdemand.ai?subject=Запрос демо RealDemand">Запросить демо</a>
+            </div>
         </section>
         """
     )
