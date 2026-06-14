@@ -294,14 +294,15 @@
 
     .section-head {
       display: grid;
-      grid-template-columns: 0.84fr 1.16fr;
+      grid-template-columns: minmax(440px, 1.18fr) minmax(280px, 0.82fr);
       gap: 28px;
       align-items: end;
       margin-bottom: 30px;
     }
 
     .section-text {
-      max-width: 820px;
+      justify-self: end;
+      max-width: 500px;
       color: var(--muted);
       font-size: 19px;
     }
@@ -725,6 +726,12 @@
       line-height: 1;
       font-weight: 950;
       letter-spacing: -0.06em;
+    }
+
+    .rd-kpi-value.small {
+      font-size: 22px;
+      line-height: 1.05;
+      letter-spacing: 0;
     }
 
     .rd-kpi-note {
@@ -1308,10 +1315,10 @@
     <section class="hero">
       <div class="container hero-grid">
         <div>
-          <div class="eyebrow">AI-сервис анализа рынка</div>
-          <h1>Рынок не ждет.<br>И ошибки тоже.</h1>
-          <p class="lead">RealDemand помогает понять, стоит ли выходить в новую сферу, регион или категорию. Быстро и с опорой на факты.</p>
-          <p class="hero-note">В основе — проверяемые источники: официальная статистика, потребительские индексы, поисковый спрос, открытые данные о конкурентах и сетевые обсуждения. Если источник слабый или сигнал спорный, это видно в отчете.</p>
+          <div class="eyebrow">Проверка рынка перед запуском</div>
+          <h1>Проверка рынка<br>перед запуском</h1>
+          <p class="lead">RealDemand помогает проверить конкретную гипотезу: например, клининг в Казани с пилотным бюджетом 350 тыс. ₽.</p>
+          <p class="hero-note">Пользователь задает город, сферу и бюджет. Сервис собирает статистику региона, поисковый интерес, карточки конкурентов и отзывы, а затем показывает, где есть спрос, где высокая плотность игроков и с какого района безопаснее начать.</p>
 
           <div class="hero-actions">
             <a href="#demo" class="btn btn-yellow">Получить демо</a>
@@ -1320,16 +1327,16 @@
 
           <div class="hero-points">
             <div class="point">
-              <strong>С опорой на факты</strong>
-              у каждого вывода есть источник, сигнал и понятная логика
+              <strong>Что вводим</strong>
+              город, район, сферу, формат запуска и бюджет пилота
             </div>
             <div class="point">
-              <strong>Ранний сигнал</strong>
-              мониторинг сети показывает, где спрос начинает проявляться раньше отчетности
+              <strong>Что проверяем</strong>
+              спрос, конкурентов, отзывы, сезонность и стоимость входа
             </div>
             <div class="point">
-              <strong>Для решения</strong>
-              итог — не набор графиков, а понятный вывод: запускать, ждать или тестировать
+              <strong>Что получаем</strong>
+              рекомендацию, риски, район для теста и список источников
             </div>
           </div>
         </div>
@@ -1337,7 +1344,7 @@
         <div class="hero-panel">
           <div class="panel-top">
             <div class="dots"><span></span><span></span><span></span></div>
-            <div>Пример анализа — новый регион</div>
+            <div>Пример: клининг в Казани</div>
           </div>
 
           <div class="panel-grid">
@@ -1359,13 +1366,13 @@
             </div>
 
             <div class="mini-card">
-              <div class="mini-label">Что говорит система</div>
+              <div class="mini-label">Решение для пилота</div>
               <div class="quote">“Можно запускать пилот. Но не во весь город и не с первого дня.”</div>
             </div>
 
             <div class="mini-card big">
               <div class="mini-label">Главная мысль</div>
-              RealDemand показывает, где данные сходятся, где спорят между собой и что из этого можно сделать в бизнесе.
+              В примере лучше начать с двух районов и не тратить первый бюджет на центр города.
             </div>
           </div>
         </div>
@@ -1377,26 +1384,26 @@
         <div class="section-head">
           <div>
             <div class="eyebrow">Проблема</div>
-            <h2>Данных много.<br>Картина не складывается.</h2>
+            <h2>Перед запуском приходится собирать рынок из разрозненных источников</h2>
           </div>
-          <div class="section-text">Команды собирают таблицы, поисковые запросы, отчеты, страницы конкурентов и комментарии из сети. На это уходят часы или дни. Результат часто остается разрозненным: данные есть, а уверенного решения пока нет.</div>
+          <div class="section-text">Обычно аналитик отдельно смотрит статистику города, поисковые запросы, карты, сайты конкурентов и отзывы. После этого все равно остается вопрос: где тестировать предложение и какой риск у бюджета.</div>
         </div>
 
         <div class="grid-3">
           <div class="card paper">
             <div class="num">01</div>
-            <h3>Источники разбросаны</h3>
-            <p>Официальная статистика отдельно, поведенческие сигналы отдельно, активность аудитории отдельно. Свести это руками можно, но долго.</p>
+            <h3>Нет одной картины</h3>
+            <p>Росстат, карты, выдача, сайты игроков и отзывы приходится сводить вручную.</p>
           </div>
           <div class="card yellow">
             <div class="num">02</div>
-            <h3>Анализ съедает время</h3>
-            <p>Команда тратит время на сбор и сверку данных вместо того, чтобы быстрее перейти к проверке гипотезы.</p>
+            <h3>Сложно выбрать район</h3>
+            <p>В центре может быть много спроса, но аренда, реклама и конкуренты быстро съедают бюджет.</p>
           </div>
           <div class="card orange">
             <div class="num">03</div>
-            <h3>Сигнал приходит поздно</h3>
-            <p>Официальные отчеты и продажи часто показывают изменение с задержкой. Сетевые сигналы помогают заметить движение раньше.</p>
+            <h3>Ошибки видны поздно</h3>
+            <p>Если пилот запущен не там, команда узнает это уже после расходов на рекламу и операцию.</p>
           </div>
         </div>
       </div>
@@ -1407,30 +1414,30 @@
         <div class="section-head">
           <div>
             <div class="eyebrow">Как работает</div>
-            <h2>Три шага.<br>Проверяемый процесс.</h2>
+            <h2>От конкретного вопроса к плану тестового запуска</h2>
           </div>
-          <div class="section-text">Вы задаете бизнес-вопрос. Система подтягивает релевантные источники, сравнивает сигналы и собирает вывод, который можно показать руководителю, клиенту или команде.</div>
+          <div class="section-text">Пользователь описывает запуск, сервис собирает источники, показывает спорные места и формирует короткий план пилота: где начать, что измерять и когда расширяться.</div>
         </div>
 
         <div class="steps">
           <div class="step">
             <div class="step-index">1</div>
-            <h3>Формулируете задачу</h3>
-            <p>Например: куда выходить с услугой, есть ли спрос в регионе, кто уже занял рынок.</p>
+            <h3>Описываете запуск</h3>
+            <p>Например: город, сфера, район, бюджет, срок пилота и формат предложения.</p>
             <div class="step-box">“Стоит ли запускать клининг в Казани?”</div>
           </div>
 
           <div class="step">
             <div class="step-index">2</div>
-            <h3>Собираем сигналы</h3>
-            <p>Демография, доходы, потребительская активность, поисковая динамика, конкуренты, обсуждения в сети.</p>
-            <div class="step-box">Статистика • спрос • конкуренты • сетевой шум</div>
+            <h3>Сверяете данные</h3>
+            <p>Статистика, поисковые запросы, карты, сайты конкурентов, отзывы и сезонность.</p>
+            <div class="step-box">Статистика • запросы • карты • отзывы</div>
           </div>
 
           <div class="step">
             <div class="step-index">3</div>
-            <h3>Получаете ответ</h3>
-            <p>Запускать, ждать, тестировать или менять регион. С аргументами и ссылками на сигналы.</p>
+            <h3>Получаете план</h3>
+            <p>Район для теста, риски, ограничения данных и метрики первых недель.</p>
             <div class="step-box">“Начать с пилота в двух районах. Центр пока дорогой.”</div>
           </div>
         </div>
@@ -1442,39 +1449,39 @@
         <div class="section-head">
           <div>
             <div class="eyebrow">Данные</div>
-            <h2>Проверяем.<br>Сверяем.<br>Решаем.</h2>
+            <h2>Данные разделены по типам, чтобы было видно, чему можно доверять</h2>
           </div>
-          <div class="section-text">Источники подбираются под задачу. Для региональной оценки важны одни данные, для конкурентного анализа — другие, для раннего тренда — третьи. В одном случае достаточно официальной статистики и поисковой динамики, в другом нужны сетевые обсуждения, карточки компаний и следы активности конкурентов.</div>
+          <div class="section-text">Для одного рынка хватает статистики и карт, для другого нужны отзывы и поисковая динамика. Если источников мало или они спорят между собой, это показывается как риск.</div>
         </div>
 
         <div class="grid-4">
           <div class="card">
-            <div class="num">Официальная статистика</div>
-            <h3>База региона</h3>
-            <p>Демография, доходы, занятость, структура отраслей, количество компаний. Здесь уместны Росстат и похожие источники.</p>
+            <div class="num">Статистика</div>
+            <h3>Размер рынка</h3>
+            <p>Население, доходы, занятость, районы роста и количество компаний в категории.</p>
           </div>
           <div class="card blue">
-            <div class="num">Потребительская динамика</div>
-            <h3>Живой спрос</h3>
-            <p>Индексы, транзакционные и поведенческие сигналы помогают понять, что происходит не “в среднем”, а сейчас.</p>
+            <div class="num">Спрос</div>
+            <h3>Что ищут люди</h3>
+            <p>Запросы, сезонность, темы в отзывах и признаки регулярной потребности.</p>
           </div>
           <div class="card yellow">
-            <div class="num">Сеть и медиа</div>
-            <h3>Ранний шум</h3>
-            <p>Brand Analytics и похожие инструменты помогают ловить всплески обсуждений, упоминаний и интереса до того, как они попадут в отчеты.</p>
+            <div class="num">Отзывы</div>
+            <h3>Где болит</h3>
+            <p>Жалобы на скорость, график, цену и качество помогают найти незакрытый сценарий.</p>
           </div>
           <div class="card paper">
             <div class="num">Конкуренты</div>
-            <h3>Кто уже там</h3>
-            <p>Сайты, карточки компаний, выдача, соцсети и открытые следы активности показывают плотность рынка и слабые места игроков.</p>
+            <h3>Кто мешает входу</h3>
+            <p>Карты, сайты, выдача, акции и частота отзывов показывают плотность игроков.</p>
           </div>
         </div>
 
         <div class="source-belt">
           <span>Проверяемые источники</span>
-          <span>Прозрачная логика</span>
-          <span>Ранние сигналы роста</span>
-          <span>Аргументы для защиты решения</span>
+          <span>Как посчитано</span>
+          <span>Ограничения данных</span>
+          <span>Аргументы для пилота</span>
           <span>Цифры с источниками</span>
         </div>
       </div>
@@ -1485,31 +1492,31 @@
         <div class="section-head">
           <div>
             <div class="eyebrow">Сценарии</div>
-            <h2>Аналитика для рабочих решений.</h2>
+            <h2>Сценарии привязаны к решениям, которые принимает команда</h2>
           </div>
-          <div class="section-text">Продукт нужен командам, которые выбирают регион, оценивают спрос, сравнивают конкурентов и готовят аргументацию для решения.</div>
+          <div class="section-text">Лендинг показывает один пример, но продукт полезен в нескольких повторяющихся задачах: новый город, новая ниша, мониторинг и отчет для обсуждения.</div>
         </div>
 
         <div class="grid-4">
           <div class="card">
             <div class="num">Сценарий 01</div>
-            <h3>Новый регион</h3>
-            <p>Понять, в какой город или район выходить, где есть спрос и где конкуренция еще терпимая.</p>
+            <h3>Новый город</h3>
+            <p>Сравнить 3-5 городов и выбрать, где начинать пилот дешевле и понятнее.</p>
           </div>
           <div class="card">
             <div class="num">Сценарий 02</div>
-            <h3>Новая сфера</h3>
-            <p>Сравнить соседние категории и понять, где спрос растет при приемлемой конкуренции.</p>
+            <h3>Новая ниша</h3>
+            <p>Проверить соседние категории: клининг, ремонт, детские кружки, фитнес-студии.</p>
           </div>
           <div class="card">
             <div class="num">Сценарий 03</div>
-            <h3>Сетевой мониторинг</h3>
-            <p>Отслеживать, где тема начинает шуметь: отзывы, посты, обсуждения, новые игроки, внезапные всплески интереса.</p>
+            <h3>Мониторинг</h3>
+            <p>Раз в неделю видеть новые отзывы, акции конкурентов и всплески поискового спроса.</p>
           </div>
           <div class="card">
             <div class="num">Сценарий 04</div>
             <h3>Отчет для обсуждения</h3>
-            <p>Собрать PDF/Word с выводом, источниками и понятной логикой для руководителя, клиента или команды.</p>
+            <p>Собрать короткий документ: вводные, источники, риски, рекомендация и следующий шаг.</p>
           </div>
         </div>
       </div>
@@ -1520,9 +1527,9 @@
         <div class="section-head">
           <div>
             <div class="eyebrow">Продукт</div>
-            <h2>Рабочий интерфейс для рыночной разведки.</h2>
+            <h2>Что делает сервис в этом сценарии</h2>
           </div>
-          <div class="section-text">Интерфейс устроен как B2B-аналитическая система: фильтры, источники, карта спроса, конкурентная среда, сценарии запуска и отчет для обсуждения внутри команды.</div>
+          <div class="section-text">Скрины показывают тот же сценарий, что демо: сервис принимает вводные, считает факторы, выбирает район для пилота и собирает аргументы для решения команды.</div>
         </div>
 
         <div class="screens">
@@ -1530,7 +1537,7 @@
             <div class="rd-macbar">
               <div class="rd-macbar-left">
                 <div class="rd-dots"><span></span><span></span><span></span></div>
-                <div class="rd-window-title">RealDemand / Market Overview</div>
+                <div class="rd-window-title">RealDemand / Обзор рынка</div>
               </div>
               <div class="rd-macbar-right">
                 <span class="rd-chip">Казань</span>
@@ -1561,7 +1568,7 @@
 
                 <div class="rd-source-box">
                   <strong>Источники</strong>
-                  <p>Статистика региона, поисковая динамика, открытые данные конкурентов, сетевые обсуждения.</p>
+                  <p>Статистика региона, поисковые запросы, карты, сайты конкурентов, отзывы и сезонность.</p>
                 </div>
               </aside>
 
@@ -1578,7 +1585,7 @@
                 <div class="rd-title-row">
                   <div>
                     <div class="rd-title">Обзор рынка</div>
-                    <p class="rd-subtitle">Сводная оценка спроса, конкуренции, регионального контекста и ранних сетевых сигналов по выбранной сфере.</p>
+                    <p class="rd-subtitle">Домашние сервисы, Казань, бюджет 350 тыс. ₽, пилот на 6-8 недель.</p>
                   </div>
                   <div class="rd-health">
                     <div class="rd-health-label"><span>Уверенность вывода</span><span>84%</span></div>
@@ -1589,8 +1596,8 @@
                 <div class="rd-kpi-grid">
                   <div class="rd-kpi">
                     <div class="rd-kpi-label">Индекс привлекательности</div>
-                    <div class="rd-kpi-value">82/100</div>
-                    <div class="rd-kpi-note good">Пилот выглядит оправданным</div>
+	                    <div class="rd-kpi-value">67</div>
+	                    <div class="rd-kpi-note good">Тестировать осторожно</div>
                   </div>
                   <div class="rd-kpi">
                     <div class="rd-kpi-label">Динамика спроса</div>
@@ -1600,10 +1607,10 @@
                   <div class="rd-kpi">
                     <div class="rd-kpi-label">Конкурентная плотность</div>
                     <div class="rd-kpi-value">Средняя</div>
-                    <div class="rd-kpi-note">Есть точки входа</div>
+	                    <div class="rd-kpi-note">56/100 по плотности</div>
                   </div>
                   <div class="rd-kpi">
-                    <div class="rd-kpi-label">Сетевой сигнал</div>
+                    <div class="rd-kpi-label">Отзывы и обсуждения</div>
                     <div class="rd-kpi-value">+31%</div>
                     <div class="rd-kpi-note good">Рост обсуждений и отзывов</div>
                   </div>
@@ -1623,11 +1630,11 @@
                   <div class="rd-panel">
                     <div class="rd-panel-head">
                       <div class="rd-panel-title">Краткий вывод</div>
-                      <div class="rd-panel-link">AI summary</div>
+                      <div class="rd-panel-link">для команды</div>
                     </div>
                     <div class="rd-summary">
                       <strong>Рекомендация</strong>
-                      <p>Сфера подходит для тестового запуска. Приоритет — районы с растущим спросом и умеренной плотностью конкурентов. Центр города лучше рассматривать на втором этапе.</p>
+                      <p>Начать с двух районов, где спрос растет, а конкурентов меньше. Центр города оставить на второй этап из-за стоимости входа.</p>
                     </div>
                     <div class="rd-tag-row">
                       <span>Растущий спрос</span>
@@ -1645,7 +1652,7 @@
                       <div class="rd-source-item"><span>Спрос</span><span>35%</span></div>
                       <div class="rd-source-item"><span>Конкуренция</span><span>25%</span></div>
                       <div class="rd-source-item"><span>Экономика региона</span><span>20%</span></div>
-                      <div class="rd-source-item"><span>Сетевой сигнал</span><span>20%</span></div>
+                      <div class="rd-source-item"><span>Отзывы и обсуждения</span><span>20%</span></div>
                     </div>
                   </div>
                   <div class="rd-panel">
@@ -1659,8 +1666,8 @@
                   <div class="rd-panel">
                     <div class="rd-panel-title">Следующий шаг</div>
                     <div class="rd-summary">
-                      <strong>Пилот</strong>
-                      <p>Запуск в двух районах на 6–8 недель с отдельным измерением спроса и стоимости заявки.</p>
+	                      <strong>Тестировать осторожно</strong>
+	                      <p>Начать с Ново-Савиновского района, Советский добавить вторым. Центр не брать в первый пилот из-за стоимости входа.</p>
                     </div>
                   </div>
                 </div>
@@ -1773,12 +1780,12 @@
             <div class="rd-macbar">
               <div class="rd-macbar-left">
                 <div class="rd-dots"><span></span><span></span><span></span></div>
-                <div class="rd-window-title">RealDemand / Competitive Intelligence</div>
+                <div class="rd-window-title">RealDemand / Сценарий пилота</div>
               </div>
               <div class="rd-macbar-right">
-                <span class="rd-chip">Top players</span>
-                <span class="rd-chip">Signals</span>
-                <span class="rd-chip dark">Alerts on</span>
+                <span class="rd-chip">Казань</span>
+                <span class="rd-chip">Домашние сервисы</span>
+                <span class="rd-chip dark">350 тыс. ₽</span>
               </div>
             </div>
 
@@ -1787,106 +1794,94 @@
                 <div class="rd-logo"><span class="rd-logo-mark"></span>RealDemand</div>
                 <div class="rd-side-section">
                   <div class="rd-side-label">Рабочая область</div>
-                  <a class="rd-side-item">Обзор рынка</a>
-                  <a class="rd-side-item">География спроса</a>
-                  <a class="rd-side-item active">Конкуренты</a>
-                  <a class="rd-side-item">Сценарии запуска</a>
+                  <a class="rd-side-item active">Сценарий пилота</a>
+                  <a class="rd-side-item active">Карта районов</a>
+                  <a class="rd-side-item">Конкуренты</a>
                   <a class="rd-side-item">Отчет</a>
                 </div>
                 <div class="rd-side-section">
-                  <div class="rd-side-label">Сигналы</div>
-                  <a class="rd-side-item active">Упоминания</a>
+                  <div class="rd-side-label">Источники</div>
+                  <a class="rd-side-item active">Статистика</a>
+                  <a class="rd-side-item active">Поиск</a>
                   <a class="rd-side-item active">Отзывы</a>
-                  <a class="rd-side-item">Рекламная активность</a>
-                  <a class="rd-side-item">Поисковый интерес</a>
                 </div>
               </aside>
 
               <div class="rd-main">
                 <div class="rd-topline">
-                  <div class="rd-breadcrumbs">Конкуренты / Домашние сервисы / Казань</div>
+                  <div class="rd-breadcrumbs">Проекты / Домашние сервисы / Казань</div>
                   <div class="rd-actions">
-                    <span class="rd-button">Сегментировать</span>
-                    <span class="rd-button">Добавить конкурента</span>
-                    <span class="rd-button primary">Экспорт таблицы</span>
+                    <span class="rd-button">Источники</span>
+                    <span class="rd-button">Карта</span>
+                    <span class="rd-button primary">Отчет</span>
                   </div>
                 </div>
 
                 <div class="rd-title-row">
                   <div>
-                    <div class="rd-title">Конкурентная среда</div>
-                    <p class="rd-subtitle">Система показывает игроков, силу присутствия, динамику интереса, отзывы и признаки активности в сети.</p>
+                    <div class="rd-title">Пилот клининга в Казани</div>
+                    <p class="rd-subtitle">Задача: понять, стоит ли запускать предложение и какой район взять первым при бюджете 350 тыс. ₽.</p>
                   </div>
                   <div class="rd-health">
-                    <div class="rd-health-label"><span>Рыночная плотность</span><span>62%</span></div>
-                    <div class="rd-health-bar"><span style="width:62%"></span></div>
+                    <div class="rd-health-label"><span>Уверенность данных</span><span>84%</span></div>
+                    <div class="rd-health-bar"><span style="width:84%"></span></div>
                   </div>
                 </div>
 
                 <div class="rd-grid-2">
                   <div class="rd-panel">
                     <div class="rd-panel-head">
-                      <div class="rd-panel-title">Активность игроков</div>
-                      <div class="rd-panel-link">Упоминания / отзывы</div>
+                      <div class="rd-panel-title">Вводные пользователя</div>
+                      <div class="rd-panel-link">что выбрано</div>
                     </div>
-                    <div class="rd-bar-chart">
-                      <span style="height:42%"></span>
-                      <span style="height:58%"></span>
-                      <span style="height:76%"></span>
-                      <span style="height:48%"></span>
-                      <span style="height:66%"></span>
-                      <span style="height:86%"></span>
-                      <span style="height:71%"></span>
+                    <div class="rd-source-list">
+                      <div class="rd-source-item"><span>Город</span><span>Казань</span></div>
+                      <div class="rd-source-item"><span>Сфера</span><span>Домашние сервисы</span></div>
+                      <div class="rd-source-item"><span>Бюджет пилота</span><span>350 тыс. ₽</span></div>
+                      <div class="rd-source-item"><span>Задача</span><span>выбрать район старта</span></div>
                     </div>
                   </div>
 
                   <div class="rd-panel">
                     <div class="rd-panel-head">
-                      <div class="rd-panel-title">Топ игроков</div>
-                      <div class="rd-panel-link">По силе сигнала</div>
+                      <div class="rd-panel-title">Вывод сервиса</div>
+                      <div class="rd-panel-link">для обсуждения</div>
                     </div>
-                    <div class="rd-table">
-                      <div class="rd-table-row head">
-                        <div>Компания</div><div>Сигнал</div><div>Рост</div><div>Статус</div>
-                      </div>
-                      <div class="rd-table-row">
-                        <div>CleanPro</div><div>18%</div><div>+12%</div><div><span class="rd-status">Сильный</span></div>
-                      </div>
-                      <div class="rd-table-row">
-                        <div>HomeFresh</div><div>11%</div><div>+7%</div><div><span class="rd-status">Стабильный</span></div>
-                      </div>
-                      <div class="rd-table-row">
-                        <div>City Clean</div><div>9%</div><div>+19%</div><div><span class="rd-status">Растет</span></div>
-                      </div>
-                      <div class="rd-table-row">
-                        <div>Chisto24</div><div>7%</div><div>+4%</div><div><span class="rd-status warn">Локальный</span></div>
-                      </div>
+                    <div class="rd-summary">
+                      <strong>Тестировать осторожно</strong>
+                      <p>Начать с Ново-Савиновского района. Советский оставить вторым, центр не брать в первый пилот из-за дорогого входа.</p>
+                    </div>
+                    <div class="rd-source-list" style="margin-top:14px;">
+                      <div class="rd-source-item"><span>Первый район</span><span>Ново-Савиновский</span></div>
+                      <div class="rd-source-item"><span>Второй этап</span><span>Советский</span></div>
+                      <div class="rd-source-item"><span>Ограничение</span><span>центр дорогой</span></div>
                     </div>
                   </div>
                 </div>
 
                 <div class="rd-grid-3">
                   <div class="rd-panel">
-                    <div class="rd-panel-title">Слабые места рынка</div>
+                    <div class="rd-panel-title">География</div>
                     <div class="rd-source-list">
-                      <div class="rd-source-item"><span>Мало игроков 24/7</span><span>окно</span></div>
-                      <div class="rd-source-item"><span>Отзывы о скорости</span><span>боль</span></div>
-                      <div class="rd-source-item"><span>Премиум-сегмент</span><span>пусто</span></div>
+                      <div class="rd-source-item"><span>Ново-Савиновский</span><span>старт</span></div>
+                      <div class="rd-source-item"><span>Советский</span><span>второй район</span></div>
+                      <div class="rd-source-item"><span>Вахитовский центр</span><span>дорого</span></div>
                     </div>
                   </div>
                   <div class="rd-panel">
-                    <div class="rd-panel-title">Растущие темы</div>
+                    <div class="rd-panel-title">Почему так</div>
                     <div class="rd-source-list">
-                      <div class="rd-source-item"><span>Уборка после ремонта</span><span>+28%</span></div>
-                      <div class="rd-source-item"><span>Клининг офиса</span><span>+16%</span></div>
-                      <div class="rd-source-item"><span>Экспресс-заказ</span><span>+22%</span></div>
+                      <div class="rd-source-item"><span>Поисковый спрос</span><span>+24%</span></div>
+                      <div class="rd-source-item"><span>Отзывы и обсуждения</span><span>+31%</span></div>
+                      <div class="rd-source-item"><span>Плотность конкурентов</span><span>56/100</span></div>
                     </div>
                   </div>
                   <div class="rd-panel">
-                    <div class="rd-panel-title">Вывод</div>
-                    <div class="rd-summary">
-                      <strong>Конкуренция</strong>
-                      <p>Рынок занят, но в отдельных сценариях спрос растет быстрее, чем предложение.</p>
+                    <div class="rd-panel-title">Что получает команда</div>
+                    <div class="rd-source-list">
+                      <div class="rd-source-item"><span>Риск бюджета</span><span>ограничить район</span></div>
+                      <div class="rd-source-item"><span>Проверка руками</span><span>скорость отклика</span></div>
+                      <div class="rd-source-item"><span>Экспорт</span><span>отчет с источниками</span></div>
                     </div>
                   </div>
                 </div>
@@ -1901,9 +1896,9 @@
                 <div class="rd-window-title">RealDemand / Scenario & Report</div>
               </div>
               <div class="rd-macbar-right">
-                <span class="rd-chip">Executive summary</span>
+                <span class="rd-chip">Краткий отчет</span>
                 <span class="rd-chip">PDF / DOCX</span>
-                <span class="rd-chip dark">Board ready</span>
+                <span class="rd-chip dark">Для совещания</span>
               </div>
             </div>
 
@@ -1920,7 +1915,7 @@
                 </div>
                 <div class="rd-side-section">
                   <div class="rd-side-label">Экспорт</div>
-                  <a class="rd-side-item active">Executive summary</a>
+                  <a class="rd-side-item active">Краткий отчет</a>
                   <a class="rd-side-item">Полный отчет</a>
                   <a class="rd-side-item">Презентация</a>
                 </div>
@@ -1967,7 +1962,7 @@
 
                 <div class="rd-report">
                   <div class="rd-document">
-                    <div class="rd-doc-title">Executive summary</div>
+                    <div class="rd-doc-title">Краткий отчет</div>
                     <div class="rd-doc-line w92"></div>
                     <div class="rd-doc-line w84"></div>
                     <div class="rd-doc-line w76"></div>
@@ -2005,7 +2000,7 @@
                         <div>Экономика региона</div><div>Стабильная</div><div>20%</div><div><span class="rd-status warn">Нейтрально</span></div>
                       </div>
                       <div class="rd-table-row">
-                        <div>Сетевой сигнал</div><div>Растет</div><div>20%</div><div><span class="rd-status">Позитивно</span></div>
+                        <div>Отзывы и обсуждения</div><div>Растут</div><div>20%</div><div><span class="rd-status">Позитивно</span></div>
                       </div>
                     </div>
                   </div>
@@ -2013,6 +2008,37 @@
               </div>
             </div>
           </article>
+        </div>
+
+        <div class="section-head" style="margin-top:32px;">
+          <div>
+            <div class="eyebrow">Сценарий пользователя</div>
+	            <h2>Какие задачи закрывает сервис</h2>
+	          </div>
+	          <div class="section-text">Один расчет помогает команде быстрее договориться, где запускать пилот, что проверить руками и какие ограничения поставить бюджету.</div>
+        </div>
+
+        <div class="grid-4">
+          <div class="card paper">
+	            <div class="num">Задача 01</div>
+	            <h3>Проверить гипотезу</h3>
+	            <p>Понять, хватает ли спроса для пилота в выбранном городе и сфере.</p>
+          </div>
+          <div class="card blue">
+	            <div class="num">Задача 02</div>
+	            <h3>Выбрать район старта</h3>
+	            <p>Сравнить районы и не тратить первый бюджет на слишком дорогую точку входа.</p>
+          </div>
+          <div class="card yellow">
+	            <div class="num">Задача 03</div>
+	            <h3>Ограничить риск бюджета</h3>
+	            <p>Увидеть конкуренцию, слабые места рынка и условия, которые нужно проверить руками.</p>
+          </div>
+          <div class="card">
+	            <div class="num">Задача 04</div>
+	            <h3>Собрать решение</h3>
+	            <p>Получить короткий вывод с источниками, рисками, районом и следующим шагом.</p>
+          </div>
         </div>
       </div>
     </section>
@@ -2022,27 +2048,27 @@
         <div class="section-head">
           <div>
             <div class="eyebrow">Результат</div>
-            <h2>От источников<br>к рабочему выводу.</h2>
+            <h2>На выходе не обещание успеха, а план безопасного пилота</h2>
           </div>
-          <div class="section-text">Сервис сокращает путь от разрозненных источников к рабочему выводу. Команда видит не только рекомендацию, но и ограничения данных.</div>
+          <div class="section-text">RealDemand не заменяет решение команды. Он помогает быстро увидеть, где гипотеза выглядит сильной, где источники слабые и что нужно проверить в первые недели.</div>
         </div>
 
         <div class="compare">
           <div class="compare-row">
-            <div class="compare-cell"><strong>Было</strong>3–8 часов ручного анализа</div>
-            <div class="compare-cell"><strong>Стало</strong>15–30 минут до первого вывода</div>
+            <div class="compare-cell"><strong>Было</strong>3–8 часов на ручной сбор ссылок и таблиц</div>
+            <div class="compare-cell"><strong>Стало</strong>15–30 минут до первой версии гипотезы</div>
           </div>
           <div class="compare-row">
-            <div class="compare-cell"><strong>Было</strong>таблицы, статьи, поисковые сигналы и хаос</div>
-            <div class="compare-cell"><strong>Стало</strong>единая картина по спросу, конкурентам и регионам</div>
+            <div class="compare-cell"><strong>Было</strong>“в Казани вроде есть спрос”</div>
+            <div class="compare-cell"><strong>Стало</strong>“начать с Савиновского района, центр отложить”</div>
           </div>
           <div class="compare-row">
-            <div class="compare-cell"><strong>Было</strong>“рынок выглядит интересным”</div>
-            <div class="compare-cell"><strong>Стало</strong>“вот сигналы роста, конкуренция и риски”</div>
+            <div class="compare-cell"><strong>Было</strong>спор о том, каким источникам верить</div>
+            <div class="compare-cell"><strong>Стало</strong>видно, где данные сходятся, а где нужна ручная проверка</div>
           </div>
           <div class="compare-row">
-            <div class="compare-cell"><strong>Было</strong>поздняя реакция на рост интереса</div>
-            <div class="compare-cell"><strong>Стало</strong>ранние сигналы из поиска, конкурентов и сети</div>
+            <div class="compare-cell"><strong>Было</strong>решение без понятного критерия успеха</div>
+            <div class="compare-cell"><strong>Стало</strong>пилот на 6–8 недель с метриками спроса и стоимости заявки</div>
           </div>
         </div>
       </div>
@@ -2053,9 +2079,9 @@
         <div class="section-head">
           <div>
             <div class="eyebrow">Форматы</div>
-            <h2>Разные задачи.<br>Разные форматы.</h2>
+            <h2>Можно купить один отчет или подключить регулярную проверку рынков</h2>
           </div>
-          <div class="section-text">Формат зависит от задачи. Разовый отчет подходит для быстрой проверки гипотезы, подписка — для регулярного мониторинга, API — для аналитических команд, коробка — для внутреннего контура крупной компании.</div>
+          <div class="section-text">Если нужно проверить одну идею, подойдет отчет. Если команда постоянно выбирает регионы, ниши и конкурентов, выгоднее подписка или API.</div>
         </div>
 
         <div class="pricing">
@@ -2064,9 +2090,9 @@
             <div class="price-value">19 900 ₽</div>
             <div class="price-sub">за 1 исследование</div>
             <ul>
-              <li>Одна сфера, регион или категория</li>
-              <li>PDF/Word-отчет с источниками</li>
-              <li>Подходит для быстрой проверки гипотезы</li>
+              <li>Один город, район или категория</li>
+              <li>PDF/Word с источниками и рисками</li>
+              <li>Подходит для защиты пилота</li>
               <li>Можно зачесть в первый месяц подписки</li>
             </ul>
             <a href="#demo" class="btn btn-white">Заказать</a>
@@ -2093,20 +2119,20 @@
             <ul>
               <li>30 анализов в месяц</li>
               <li>3 пользователя</li>
-              <li>Конкуренты, география и динамика</li>
-              <li>Мониторинг сетевой активности</li>
+              <li>Карта спроса и конкурентов</li>
+              <li>Еженедельный мониторинг отзывов</li>
             </ul>
             <a href="#demo" class="btn btn-black">Запросить демо</a>
           </div>
 
           <div class="price">
-            <h3>API / Data Feed</h3>
+            <h3>API / Поток данных</h3>
             <div class="price-value">от 49 900 ₽</div>
             <div class="price-sub">в месяц</div>
             <ul>
               <li>Интеграция с BI/CRM</li>
               <li>Доступ к индексам и данным</li>
-              <li>Регулярное обновление сигналов</li>
+              <li>Еженедельное обновление данных</li>
               <li>Для аналитических команд</li>
             </ul>
             <a href="#demo" class="btn btn-white">Обсудить API</a>
@@ -2132,34 +2158,34 @@
       <div class="container faq">
         <div>
           <div class="eyebrow">FAQ</div>
-          <h2>Ответы на частые вопросы.</h2>
+          <h2>Ответы на частые вопросы</h2>
           <div class="section-text">Коротко о данных, форматах доступа и роли продукта в работе команды.</div>
         </div>
 
         <div class="faq-list">
           <div class="faq-item open">
             <button class="faq-q"><span>Откуда берутся данные?</span><span>+</span></button>
-            <div class="faq-a">Из источников под конкретную задачу: официальная статистика, потребительские индексы, поисковая динамика, открытые страницы конкурентов, соцсети и медиа. В региональном анализе уместен Росстат, для потребительской динамики — СберИндекс, для сетевого шума — Brand Analytics.</div>
+            <div class="faq-a">Из источников под конкретную задачу: официальная статистика, потребительские индексы, поисковая динамика, открытые страницы конкурентов, соцсети и медиа. В региональном анализе уместен Росстат, для потребительской динамики — СберИндекс, для отзывов и обсуждений — Brand Analytics.</div>
           </div>
 
           <div class="faq-item">
             <button class="faq-q"><span>Как проверяется качество данных?</span><span>+</span></button>
-            <div class="faq-a">Вывод привязывается к источникам и типам сигналов. Если данных мало или они противоречат друг другу, отчет показывает это как риск.</div>
+            <div class="faq-a">Каждый вывод связан с источниками и весами факторов. Если данных мало, отчет не делает вид, что все ясно, а показывает слабое место.</div>
           </div>
 
           <div class="faq-item">
             <button class="faq-q"><span>Зачем смотреть сеть?</span><span>+</span></button>
-            <div class="faq-a">Потому что интерес часто сначала появляется в обсуждениях, отзывах, постах, карточках компаний и поиске. Продажи и официальные отчеты догоняют позже.</div>
+            <div class="faq-a">Потому что там раньше видно бытовые проблемы: долго отвечают, нет вечернего выезда, дорого после ремонта, сложно записаться. Это помогает найти сценарий для пилота.</div>
           </div>
 
           <div class="faq-item">
             <button class="faq-q"><span>Какие есть форматы доступа?</span><span>+</span></button>
-            <div class="faq-a">Доступны разовый отчет, SaaS-подписка, API/Data Feed и коробочная поставка.</div>
+            <div class="faq-a">Доступны разовый отчет, SaaS-подписка, API с потоком данных и коробочная поставка.</div>
           </div>
 
           <div class="faq-item">
             <button class="faq-q"><span>Какую роль играет аналитик?</span><span>+</span></button>
-            <div class="faq-a">Это инструмент для аналитика и руководителя. Сервис быстрее собирает картину, подсвечивает спорные места и оставляет финальное решение команде.</div>
+            <div class="faq-a">Аналитик задает гипотезу, проверяет источники и решает, достаточно ли данных для запуска. Сервис помогает быстрее собрать черновую оценку, но не принимает решение вместо команды.</div>
           </div>
         </div>
       </div>
@@ -2169,8 +2195,8 @@
       <div class="container final-box">
         <div>
           <div class="eyebrow" style="background:#fff; color:#111;">Следующий шаг</div>
-          <h2>Оцените рынок до запуска.</h2>
-          <p>Запросите демо RealDemand. Покажем, как из статистики, спроса, конкурентов и сетевых сигналов собрать аргументированную оценку рынка.</p>
+          <h2>Разберите один реальный запуск до расходов на рекламу и аренду</h2>
+          <p>На демо можно взять ваш город, сферу и бюджет пилота. Покажем, какие источники нужны и где решение пока держится на слабых данных.</p>
         </div>
         <div>
           <a href="mailto:demo@realdemand.ai?subject=Запрос демо RealDemand" class="btn btn-yellow">Получить демо</a>
@@ -2180,7 +2206,7 @@
   </main>
 
   <footer class="footer">
-    <div class="container">RealDemand · анализ рынка · спрос · конкуренты · регионы · ранние сигналы</div>
+    <div class="container">RealDemand · проверка рынка · спрос · конкуренты · районы · пилот</div>
   </footer>
 
   <script>

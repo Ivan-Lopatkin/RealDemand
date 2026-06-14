@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from html import escape
 
+import pydeck as pdk
 import streamlit as st
 
 
@@ -29,10 +30,10 @@ REGIONS: dict[str, RegionSignal] = {
         demand=78,
         competition=56,
         confidence=84,
-        district="Савиновский",
+        district="Ново-Савиновский",
         demand_growth=24,
         social_growth=31,
-        note="Пилот лучше начинать с двух районов, центр оставить на второй этап.",
+        note="Начать с Ново-Савиновского, Советский добавить вторым, центр оставить на второй этап.",
     ),
     "Екатеринбург": RegionSignal(
         demand=72,
@@ -86,6 +87,184 @@ SECTORS: dict[str, SectorSignal] = {
     ),
 }
 
+REGION_MAP_POINTS: dict[str, list[dict[str, object]]] = {
+    "Казань": [
+        {
+            "district": "Ново-Савиновский",
+            "lat": 55.8307,
+            "lon": 49.1338,
+            "demand": 86,
+            "competition": 58,
+            "status": "старт пилота",
+            "radius": 850,
+            "color": [18, 185, 129, 210],
+        },
+        {
+            "district": "Советский",
+            "lat": 55.7942,
+            "lon": 49.2045,
+            "demand": 74,
+            "competition": 52,
+            "status": "второй район",
+            "radius": 740,
+            "color": [37, 99, 235, 205],
+        },
+        {
+            "district": "Вахитовский центр",
+            "lat": 55.7908,
+            "lon": 49.1233,
+            "demand": 82,
+            "competition": 78,
+            "status": "дорогой вход",
+            "radius": 690,
+            "color": [255, 107, 74, 220],
+        },
+        {
+            "district": "Приволжский",
+            "lat": 55.7357,
+            "lon": 49.1888,
+            "demand": 66,
+            "competition": 49,
+            "status": "проверить спрос",
+            "radius": 620,
+            "color": [250, 204, 21, 220],
+        },
+    ],
+    "Екатеринбург": [
+        {
+            "district": "Академический",
+            "lat": 56.7887,
+            "lon": 60.5201,
+            "demand": 81,
+            "competition": 56,
+            "status": "старт пилота",
+            "radius": 820,
+            "color": [18, 185, 129, 210],
+        },
+        {
+            "district": "ВИЗ",
+            "lat": 56.8443,
+            "lon": 60.5539,
+            "demand": 71,
+            "competition": 62,
+            "status": "проверить спрос",
+            "radius": 700,
+            "color": [37, 99, 235, 205],
+        },
+        {
+            "district": "Центр",
+            "lat": 56.8389,
+            "lon": 60.6057,
+            "demand": 78,
+            "competition": 77,
+            "status": "дорогой вход",
+            "radius": 670,
+            "color": [255, 107, 74, 220],
+        },
+        {
+            "district": "Уралмаш",
+            "lat": 56.8956,
+            "lon": 60.5962,
+            "demand": 65,
+            "competition": 57,
+            "status": "второй этап",
+            "radius": 620,
+            "color": [250, 204, 21, 220],
+        },
+    ],
+    "Новосибирск": [
+        {
+            "district": "Заельцовский",
+            "lat": 55.0647,
+            "lon": 82.9061,
+            "demand": 78,
+            "competition": 49,
+            "status": "старт пилота",
+            "radius": 800,
+            "color": [18, 185, 129, 210],
+        },
+        {
+            "district": "Калининский",
+            "lat": 55.0833,
+            "lon": 82.9687,
+            "demand": 70,
+            "competition": 47,
+            "status": "второй район",
+            "radius": 710,
+            "color": [37, 99, 235, 205],
+        },
+        {
+            "district": "Центр",
+            "lat": 55.0302,
+            "lon": 82.9204,
+            "demand": 73,
+            "competition": 70,
+            "status": "дорогой вход",
+            "radius": 640,
+            "color": [255, 107, 74, 220],
+        },
+        {
+            "district": "Октябрьский",
+            "lat": 55.0187,
+            "lon": 82.9582,
+            "demand": 67,
+            "competition": 51,
+            "status": "проверить спрос",
+            "radius": 610,
+            "color": [250, 204, 21, 220],
+        },
+    ],
+    "Нижний Новгород": [
+        {
+            "district": "Советский",
+            "lat": 56.2969,
+            "lon": 44.0305,
+            "demand": 74,
+            "competition": 51,
+            "status": "старт пилота",
+            "radius": 760,
+            "color": [18, 185, 129, 210],
+        },
+        {
+            "district": "Нижегородский",
+            "lat": 56.3267,
+            "lon": 44.0059,
+            "demand": 71,
+            "competition": 72,
+            "status": "дорогой вход",
+            "radius": 670,
+            "color": [255, 107, 74, 220],
+        },
+        {
+            "district": "Канавинский",
+            "lat": 56.3207,
+            "lon": 43.9441,
+            "demand": 64,
+            "competition": 54,
+            "status": "проверить спрос",
+            "radius": 620,
+            "color": [37, 99, 235, 205],
+        },
+        {
+            "district": "Автозаводский",
+            "lat": 56.2478,
+            "lon": 43.8689,
+            "demand": 68,
+            "competition": 48,
+            "status": "второй район",
+            "radius": 680,
+            "color": [250, 204, 21, 220],
+        },
+    ],
+}
+
+CITY_MAP_ZOOM: dict[str, float] = {
+    "Казань": 10.45,
+    "Екатеринбург": 10.35,
+    "Новосибирск": 10.25,
+    "Нижний Новгород": 10.15,
+}
+
 
 def clamp(value: float, low: int = 0, high: int = 100) -> int:
     return max(low, min(high, round(value)))
@@ -120,6 +299,11 @@ def render_css() -> None:
             --rd-coral-soft: #ffe4dc;
             --rd-radius: 8px;
             --rd-shadow: 0 18px 44px rgba(16, 24, 40, 0.10);
+            --rd-font: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, Helvetica, sans-serif;
+            --rd-section-title: clamp(32px, 3vw, 44px);
+            --rd-section-title-weight: 820;
+            --rd-subtitle: 22px;
+            --rd-card-title: 18px;
         }
 
         html {
@@ -131,6 +315,11 @@ def render_css() -> None:
                 linear-gradient(180deg, rgba(255, 255, 255, 0.90), rgba(245, 247, 251, 0.94) 18rem),
                 var(--rd-bg);
             color: var(--rd-ink);
+            font-family: var(--rd-font);
+        }
+
+        .stApp * {
+            font-family: var(--rd-font);
         }
 
         [data-testid="stHeader"],
@@ -149,6 +338,10 @@ def render_css() -> None:
 
         .stMarkdown {
             margin: 0;
+        }
+
+        .stMarkdown a.anchor-link {
+            display: none !important;
         }
 
         .rd-nav {
@@ -269,23 +462,23 @@ def render_css() -> None:
             z-index: 2;
             pointer-events: none;
             background:
-                linear-gradient(90deg, rgba(245, 247, 251, 0.98) 0%, rgba(245, 247, 251, 0.94) 40%, rgba(245, 247, 251, 0.62) 62%, rgba(245, 247, 251, 0.08) 100%),
+                linear-gradient(90deg, rgba(245, 247, 251, 1) 0%, rgba(245, 247, 251, 0.98) 44%, rgba(245, 247, 251, 0.84) 61%, rgba(245, 247, 251, 0.22) 100%),
                 linear-gradient(0deg, rgba(245, 247, 251, 1) 0%, rgba(245, 247, 251, 0) 16%);
         }
 
         .rd-hero > div:first-child {
             position: relative;
             z-index: 3;
-            max-width: 760px;
+            max-width: 800px;
             padding: 28px 0;
         }
 
         .rd-hero > div:nth-child(2) {
             position: absolute;
             top: 26px;
-            right: -92px;
+            right: -210px;
             bottom: 34px;
-            left: 34%;
+            left: 54%;
             z-index: 1;
             display: flex;
             align-items: center;
@@ -294,7 +487,8 @@ def render_css() -> None:
 
         .rd-hero > div:nth-child(2) .rd-product-shell {
             width: 100%;
-            transform: perspective(1100px) rotateY(-7deg) rotateX(2deg);
+            opacity: .82;
+            transform: perspective(1100px) rotateY(-7deg) rotateX(2deg) scale(.96);
             transform-origin: center right;
         }
 
@@ -337,17 +531,18 @@ def render_css() -> None:
         }
 
         .rd-title-xl {
-            max-width: 780px;
+            max-width: 760px;
             margin: 0 0 18px;
             color: var(--rd-ink);
-            font-size: clamp(48px, 7vw, 92px);
-            line-height: 0.94;
-            font-weight: 940;
+            font-size: clamp(46px, 5.2vw, 72px);
+            line-height: 1;
+            font-weight: 860;
+            font-variation-settings: "wght" 860;
             letter-spacing: 0;
         }
 
         .rd-lead {
-            max-width: 690px;
+            max-width: 560px;
             margin: 0 0 18px;
             color: #344054;
             font-size: 21px;
@@ -355,7 +550,7 @@ def render_css() -> None:
         }
 
         .rd-note {
-            max-width: 690px;
+            max-width: 620px;
             margin: 0 0 26px;
             color: var(--rd-muted);
             font-size: 16px;
@@ -577,9 +772,9 @@ def render_css() -> None:
         .rd-dashboard-title h2 {
             margin: 0 0 6px;
             color: var(--rd-ink);
-            font-size: 30px;
-            line-height: 1.05;
-            font-weight: 940;
+            font-size: var(--rd-subtitle);
+            line-height: 1.1;
+            font-weight: 930;
             letter-spacing: 0;
         }
 
@@ -656,6 +851,11 @@ def render_css() -> None:
             font-size: 29px;
             line-height: 1;
             font-weight: 930;
+        }
+
+        .rd-kpi-value.small {
+            font-size: 21px;
+            line-height: 1.08;
         }
 
         .rd-kpi-note {
@@ -811,6 +1011,89 @@ def render_css() -> None:
             color: #0f8f59;
         }
 
+        .rd-map-helper {
+            margin: 0 0 10px;
+            color: var(--rd-muted);
+            font-size: 13px;
+            line-height: 1.45;
+        }
+
+        .rd-map-head {
+            margin-bottom: 12px;
+        }
+
+        .rd-demo-results-gap {
+            height: 40px;
+        }
+
+        .st-key-rd_map_panel,
+        .st-key-rd_summary_panel {
+            margin-top: 0 !important;
+        }
+
+        .st-key-rd_map_panel [data-testid="stVerticalBlockBorderWrapper"],
+        .st-key-rd_summary_panel [data-testid="stVerticalBlockBorderWrapper"] {
+            padding: 18px 18px 24px !important;
+            border: 1px solid var(--rd-line) !important;
+            border-radius: var(--rd-radius) !important;
+            background: #fff !important;
+            box-shadow: var(--rd-shadow) !important;
+        }
+
+        .st-key-rd_map_panel [data-testid="stVerticalBlock"],
+        .st-key-rd_summary_panel [data-testid="stVerticalBlock"] {
+            gap: 0.7rem;
+        }
+
+        .st-key-rd_map_panel .rd-map-legend,
+        .st-key-rd_summary_panel .rd-source-list {
+            margin-bottom: 12px;
+        }
+
+        .rd-map-legend {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 8px;
+            margin-top: 10px;
+            margin-bottom: 2px;
+        }
+
+        .rd-map-legend-row {
+            display: grid;
+            grid-template-columns: 12px minmax(0, 1fr) auto;
+            gap: 9px;
+            align-items: center;
+            min-height: 36px;
+            padding: 7px 9px;
+            border: 1px solid #e3e9f2;
+            border-radius: var(--rd-radius);
+            background: #fff;
+            color: #344054;
+            font-size: 12px;
+            font-weight: 780;
+        }
+
+        .rd-map-legend-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            box-shadow: 0 0 0 2px rgba(255, 255, 255, .9);
+        }
+
+        .rd-map-legend-row strong {
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            color: var(--rd-ink);
+            font-size: 12px;
+        }
+
+        .rd-map-legend-row span:last-child {
+            color: #0f8f59;
+            white-space: nowrap;
+        }
+
         .rd-map {
             position: relative;
             min-height: 300px;
@@ -860,26 +1143,36 @@ def render_css() -> None:
 
         .rd-section-head {
             display: grid;
-            grid-template-columns: minmax(280px, .88fr) minmax(0, 1.12fr);
-            gap: 26px;
+            grid-template-columns: minmax(440px, 1.18fr) minmax(280px, .82fr);
+            column-gap: 28px;
+            row-gap: 12px;
             align-items: end;
-            margin-bottom: 26px;
+            margin-bottom: 18px;
         }
 
-        .rd-section-head h2 {
+        .rd-section-title,
+        .rd-section-head h2,
+        .rd-problem-title,
+        .rd-final h2 {
             margin: 0;
             color: var(--rd-ink);
-            font-size: clamp(34px, 5vw, 58px);
-            line-height: 1;
-            font-weight: 930;
-            letter-spacing: 0;
+            font-family: var(--rd-font) !important;
+            font-size: var(--rd-section-title) !important;
+            line-height: 1.1 !important;
+            font-weight: var(--rd-section-title-weight) !important;
+            font-variation-settings: "wght" var(--rd-section-title-weight);
+            letter-spacing: 0 !important;
         }
 
         .rd-section-head p {
+            align-self: end;
+            justify-self: end;
+            max-width: 500px;
             margin: 0;
+            padding-bottom: 4px;
             color: var(--rd-muted);
-            font-size: 17px;
-            line-height: 1.55;
+            font-size: 16px;
+            line-height: 1.5;
         }
 
         .rd-card-grid-3,
@@ -898,8 +1191,8 @@ def render_css() -> None:
         }
 
         .rd-card {
-            min-height: 190px;
-            padding: 18px;
+            min-height: 156px;
+            padding: 16px;
         }
 
         .rd-card.blue {
@@ -928,8 +1221,8 @@ def render_css() -> None:
         .rd-card h3 {
             margin: 0 0 9px;
             color: var(--rd-ink);
-            font-size: 22px;
-            line-height: 1.08;
+            font-size: var(--rd-card-title);
+            line-height: 1.12;
             font-weight: 900;
         }
 
@@ -938,6 +1231,122 @@ def render_css() -> None:
             color: #475467;
             font-size: 14px;
             line-height: 1.46;
+        }
+
+        .rd-problem-section {
+            padding-top: 48px;
+        }
+
+        .rd-problem-layout {
+            display: grid;
+            grid-template-columns: minmax(440px, 1.18fr) minmax(280px, .82fr);
+            gap: 28px;
+            align-items: start;
+            margin-bottom: 18px;
+        }
+
+        .rd-problem-title {
+            margin: 0;
+            max-width: 760px;
+        }
+
+        .rd-problem-lead {
+            max-width: 820px;
+            margin: 0;
+            color: var(--rd-muted);
+            font-size: 17px;
+            line-height: 1.55;
+        }
+
+        .rd-manual-flow {
+            display: grid;
+            gap: 8px;
+            padding: 14px;
+            border: 1px solid var(--rd-line);
+            border-radius: var(--rd-radius);
+            background: #fff;
+            box-shadow: 0 14px 34px rgba(16, 24, 40, 0.08);
+        }
+
+        .rd-manual-flow-title {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            color: var(--rd-ink);
+            font-size: 13px;
+            font-weight: 900;
+        }
+
+        .rd-manual-flow-title span:last-child {
+            color: #b42318;
+            font-weight: 850;
+        }
+
+        .rd-manual-step {
+            display: grid;
+            grid-template-columns: 86px minmax(0, 1fr);
+            gap: 12px;
+            min-height: 38px;
+            align-items: center;
+            padding: 8px 10px;
+            border: 1px solid #e3e9f2;
+            border-radius: var(--rd-radius);
+            background: #f8fafc;
+            color: #344054;
+            font-size: 12px;
+            font-weight: 780;
+        }
+
+        .rd-manual-step strong {
+            color: var(--rd-ink);
+            font-size: 12px;
+            font-weight: 900;
+        }
+
+        .rd-problem-list {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 12px;
+        }
+
+        .rd-problem-item {
+            display: grid;
+            grid-template-columns: 42px minmax(0, 1fr);
+            gap: 12px;
+            min-height: 150px;
+            padding: 16px;
+            border: 1px solid var(--rd-line);
+            border-radius: var(--rd-radius);
+            background: #fff;
+            box-shadow: 0 14px 30px rgba(16, 24, 40, 0.06);
+        }
+
+        .rd-problem-num {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            background: var(--rd-soft);
+            color: var(--rd-ink);
+            font-size: 13px;
+            font-weight: 930;
+        }
+
+        .rd-problem-item h3 {
+            margin: 0 0 8px;
+            color: var(--rd-ink);
+            font-size: var(--rd-card-title);
+            line-height: 1.12;
+            font-weight: 900;
+        }
+
+        .rd-problem-item p {
+            margin: 0;
+            color: #475467;
+            font-size: 14px;
+            line-height: 1.45;
         }
 
         .rd-native-panel {
@@ -952,7 +1361,7 @@ def render_css() -> None:
         .rd-native-panel h3 {
             margin: 0 0 8px;
             color: var(--rd-ink);
-            font-size: 26px;
+            font-size: var(--rd-subtitle);
             line-height: 1.1;
             font-weight: 900;
         }
@@ -962,6 +1371,69 @@ def render_css() -> None:
             color: var(--rd-muted);
             font-size: 15px;
             line-height: 1.5;
+        }
+
+        .rd-demo-brief {
+            display: grid;
+            grid-template-columns: minmax(240px, .72fr) minmax(0, 1.28fr);
+            gap: 12px;
+            align-items: stretch;
+            margin: 8px 0 18px;
+        }
+
+        .rd-demo-card,
+        .rd-demo-note {
+            padding: 16px;
+            border: 1px solid var(--rd-line);
+            border-radius: var(--rd-radius);
+            background: #fff;
+            box-shadow: 0 12px 30px rgba(16, 24, 40, 0.07);
+        }
+
+        .rd-demo-card h3,
+        .rd-demo-note h3 {
+            margin: 0 0 8px;
+            color: var(--rd-ink);
+            font-size: var(--rd-card-title);
+            line-height: 1.12;
+            font-weight: 900;
+        }
+
+        .rd-demo-card p,
+        .rd-demo-note p {
+            margin: 0;
+            color: var(--rd-muted);
+            font-size: 14px;
+            line-height: 1.45;
+        }
+
+        .rd-demo-note {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 10px;
+            box-shadow: none;
+            background: #f8fafc;
+        }
+
+        .rd-demo-note span {
+            display: block;
+            color: var(--rd-muted);
+            font-size: 11px;
+            font-weight: 850;
+        }
+
+        .rd-demo-note strong {
+            display: block;
+            margin-top: 5px;
+            color: var(--rd-ink);
+            font-size: 14px;
+            line-height: 1.25;
+            font-weight: 900;
+        }
+
+        .rd-compact-grid .rd-card {
+            min-height: 142px;
+            box-shadow: none;
         }
 
         div[data-testid="stSelectbox"] label,
@@ -1053,11 +1525,11 @@ def render_css() -> None:
         }
 
         .rd-price-grid {
-            grid-template-columns: repeat(5, minmax(0, 1fr));
+            grid-template-columns: repeat(3, minmax(0, 1fr));
         }
 
         .rd-price {
-            min-height: 365px;
+            min-height: 335px;
             display: flex;
             flex-direction: column;
             padding: 17px;
@@ -1083,7 +1555,7 @@ def render_css() -> None:
         .rd-price h3 {
             margin: 0 0 9px;
             color: var(--rd-ink);
-            font-size: 22px;
+            font-size: var(--rd-subtitle);
             line-height: 1.1;
             font-weight: 900;
         }
@@ -1091,9 +1563,10 @@ def render_css() -> None:
         .rd-price-value {
             margin-bottom: 5px;
             color: var(--rd-ink);
-            font-size: 31px;
+            font-size: clamp(26px, 2.3vw, 31px);
             line-height: 1;
             font-weight: 930;
+            white-space: nowrap;
         }
 
         .rd-price-sub {
@@ -1114,6 +1587,80 @@ def render_css() -> None:
 
         .rd-price li {
             margin-bottom: 7px;
+        }
+
+        .rd-user-flow {
+            margin-top: 16px;
+        }
+
+        .rd-user-flow-head {
+            display: grid;
+            grid-template-columns: minmax(420px, 1.12fr) minmax(280px, .88fr);
+            gap: 20px;
+            align-items: end;
+            margin-bottom: 10px;
+        }
+
+        .rd-user-flow-head h3 {
+            margin: 0;
+            color: var(--rd-ink);
+            font-size: var(--rd-subtitle);
+            line-height: 1.08;
+            font-weight: 930;
+        }
+
+        .rd-user-flow-head p {
+            justify-self: end;
+            max-width: 500px;
+            margin: 0;
+            color: var(--rd-muted);
+            font-size: 15px;
+            line-height: 1.5;
+        }
+
+        .rd-flow-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 0;
+            overflow: hidden;
+            border: 1px solid var(--rd-line);
+            border-radius: var(--rd-radius);
+            background: #fff;
+        }
+
+        .rd-flow-step {
+            min-height: 142px;
+            padding: 15px;
+            border-right: 1px solid var(--rd-line);
+            background: #fff;
+        }
+
+        .rd-flow-step:last-child {
+            border-right: 0;
+        }
+
+        .rd-flow-step span {
+            display: block;
+            margin-bottom: 10px;
+            color: var(--rd-muted);
+            font-size: 12px;
+            font-weight: 850;
+        }
+
+        .rd-flow-step strong {
+            display: block;
+            margin-bottom: 8px;
+            color: var(--rd-ink);
+            font-size: var(--rd-card-title);
+            line-height: 1.12;
+            font-weight: 900;
+        }
+
+        .rd-flow-step p {
+            margin: 0;
+            color: #475467;
+            font-size: 13px;
+            line-height: 1.45;
         }
 
         .rd-faq-grid {
@@ -1171,9 +1718,6 @@ def render_css() -> None:
         .rd-final h2 {
             margin: 0 0 10px;
             color: #fff;
-            font-size: clamp(34px, 5vw, 58px);
-            line-height: 1;
-            font-weight: 930;
         }
 
         .rd-final p {
@@ -1215,6 +1759,9 @@ def render_css() -> None:
 
         @media (max-width: 1120px) {
             .rd-section-head,
+            .rd-problem-layout,
+            .rd-demo-brief,
+            .rd-user-flow-head,
             .rd-faq-grid,
             .rd-final {
                 grid-template-columns: 1fr;
@@ -1222,6 +1769,10 @@ def render_css() -> None:
 
             .rd-price-grid,
             .rd-card-grid-4 {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .rd-flow-grid {
                 grid-template-columns: repeat(2, 1fr);
             }
 
@@ -1235,6 +1786,7 @@ def render_css() -> None:
 
             .rd-kpi-grid,
             .rd-grid-3,
+            .rd-problem-list,
             .rd-decision-grid {
                 grid-template-columns: repeat(2, 1fr);
             }
@@ -1262,7 +1814,8 @@ def render_css() -> None:
             }
 
             .rd-title-xl {
-                font-size: 44px;
+                font-size: 42px;
+                line-height: 1.06;
             }
 
             .rd-hero {
@@ -1287,6 +1840,7 @@ def render_css() -> None:
             }
 
             .rd-hero > div:nth-child(2) .rd-product-shell {
+                opacity: 1;
                 transform: none;
             }
 
@@ -1294,10 +1848,14 @@ def render_css() -> None:
             .rd-card-grid-3,
             .rd-card-grid-4,
             .rd-price-grid,
+            .rd-map-legend,
+            .rd-demo-note,
             .rd-kpi-grid,
             .rd-grid-2,
             .rd-grid-3,
+            .rd-problem-list,
             .rd-decision-grid,
+            .rd-flow-grid,
             .rd-compare-row {
                 grid-template-columns: 1fr;
             }
@@ -1312,6 +1870,10 @@ def render_css() -> None:
             .rd-dashboard-title {
                 align-items: flex-start;
                 flex-direction: column;
+            }
+
+            .rd-demo-results-gap {
+                height: 24px;
             }
 
             .rd-chip-row,
@@ -1331,6 +1893,83 @@ def render_css() -> None:
 
 def html_block(markup: str) -> None:
     st.markdown(markup, unsafe_allow_html=True)
+
+
+def render_region_map(region_name: str) -> None:
+    points = REGION_MAP_POINTS[region_name]
+    center_lat = sum(float(point["lat"]) for point in points) / len(points)
+    center_lon = sum(float(point["lon"]) for point in points) / len(points)
+
+    point_layer = pdk.Layer(
+        "ScatterplotLayer",
+        data=points,
+        get_position="[lon, lat]",
+        get_radius="radius",
+        get_fill_color="color",
+        get_line_color=[255, 255, 255, 235],
+        line_width_min_pixels=2,
+        pickable=True,
+        radius_min_pixels=9,
+        radius_max_pixels=34,
+        opacity=0.9,
+    )
+    label_layer = pdk.Layer(
+        "TextLayer",
+        data=points,
+        get_position="[lon, lat]",
+        get_text="district",
+        get_size=13,
+        get_color=[16, 24, 40, 230],
+        get_pixel_offset=[0, -28],
+        get_text_anchor="'middle'",
+        get_alignment_baseline="'bottom'",
+    )
+
+    st.pydeck_chart(
+        pdk.Deck(
+            map_style="https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
+            initial_view_state=pdk.ViewState(
+                latitude=center_lat,
+                longitude=center_lon,
+                zoom=CITY_MAP_ZOOM.get(region_name, 10.2),
+                pitch=0,
+            ),
+            layers=[point_layer, label_layer],
+            tooltip={
+                "html": (
+                    "<b>{district}</b><br/>"
+                    "Спрос: {demand}/100<br/>"
+                    "Конкуренция: {competition}/100<br/>"
+                    "Решение: {status}"
+                ),
+                "style": {
+                    "backgroundColor": "white",
+                    "color": "#101828",
+                    "fontFamily": "Inter, Arial, sans-serif",
+                    "fontSize": "12px",
+                    "border": "1px solid #d9e0ea",
+                    "borderRadius": "8px",
+                    "boxShadow": "0 14px 32px rgba(16, 24, 40, 0.16)",
+                },
+            },
+        ),
+        height=330,
+        width="stretch",
+    )
+
+
+def render_map_legend(region_name: str) -> None:
+    rows = []
+    for point in REGION_MAP_POINTS[region_name]:
+        color = point["color"]
+        rows.append(
+            '<div class="rd-map-legend-row">'
+            f'<span class="rd-map-legend-dot" style="background:rgba({color[0]}, {color[1]}, {color[2]}, .9);"></span>'
+            f'<strong>{escape(str(point["district"]))}</strong>'
+            f'<span>{escape(str(point["status"]))}</span>'
+            "</div>"
+        )
+    html_block(f'<div class="rd-map-legend">{"".join(rows)}</div>')
 
 
 def render_nav() -> None:
@@ -1356,18 +1995,18 @@ def render_hero() -> None:
         """
         <section class="rd-hero" id="top">
             <div>
-                <div class="rd-eyebrow">AI-сервис анализа рынка</div>
-                <h1 class="rd-title-xl">Рынок не ждет. Ошибки тоже.</h1>
-                <p class="rd-lead">RealDemand помогает понять, стоит ли выходить в новую сферу, регион или категорию. Быстро, наглядно и с опорой на проверяемые факты.</p>
-                <p class="rd-note">Сервис сводит официальную статистику, потребительские индексы, поисковый спрос, открытые данные о конкурентах и сетевые обсуждения в один рабочий вывод: запускать, тестировать, ждать или менять гипотезу.</p>
+                <div class="rd-eyebrow">Проверка рынка перед запуском</div>
+                <h1 class="rd-title-xl">Проверка рынка перед запуском в новом городе или районе</h1>
+                <p class="rd-lead">RealDemand помогает решить прикладной вопрос: стоит ли запускать пилот клининга в Казани и с какого района начинать.</p>
+                <p class="rd-note">Пользователь задает город, сферу и бюджет. Сервис считает спрос, конкурентов, отзывы и уверенность данных, а затем отдает рабочий вывод: первый район, ограничения бюджета, риски и источники для проверки.</p>
                 <div class="rd-actions">
                     <a class="rd-btn" href="#demo">Посчитать сценарий</a>
                     <a class="rd-btn secondary" href="#product">Посмотреть интерфейс</a>
                 </div>
                 <div class="rd-proof-grid">
-                    <div class="rd-proof"><strong>Факты</strong><span>У каждого вывода есть источник, сигнал и понятная логика.</span></div>
-                    <div class="rd-proof"><strong>Ранний сигнал</strong><span>Поиск и сеть показывают движение раньше отчетности.</span></div>
-                    <div class="rd-proof"><strong>Решение</strong><span>Итог собирается в рекомендацию, а не в набор графиков.</span></div>
+                    <div class="rd-proof"><strong>Вводные</strong><span>Казань, домашние сервисы, бюджет 350 тыс. ₽ и цель пилота.</span></div>
+                    <div class="rd-proof"><strong>Расчет</strong><span>Спрос, конкуренты, отзывы, районы и уверенность источников.</span></div>
+                    <div class="rd-proof"><strong>Вывод</strong><span>Ново-Савиновский для старта, риски бюджета и отчет для команды.</span></div>
                 </div>
             </div>
             <div>
@@ -1375,7 +2014,7 @@ def render_hero() -> None:
                     <div class="rd-window-bar">
                         <div class="rd-chip-row">
                             <div class="rd-dots"><span></span><span></span><span></span></div>
-                            <div class="rd-window-title">RealDemand / Market Overview</div>
+                            <div class="rd-window-title">RealDemand / Обзор рынка</div>
                         </div>
                         <div class="rd-chip-row">
                             <span class="rd-chip">Казань</span>
@@ -1407,8 +2046,8 @@ def render_hero() -> None:
                             </div>
                             <div class="rd-dashboard-title">
                                 <div>
-                                    <h2>Обзор рынка</h2>
-                                    <p>Сводная оценка спроса, конкуренции, регионального контекста и ранних сетевых сигналов.</p>
+                                    <h2>Пилот клининга в Казани</h2>
+                                    <p>Дефолтный сценарий лендинга: домашние сервисы, бюджет 350 тыс. ₽, выбор первого района на 6-8 недель.</p>
                                 </div>
                                 <div class="rd-health">
                                     <div class="rd-health-label"><span>Уверенность</span><span>84%</span></div>
@@ -1416,10 +2055,10 @@ def render_hero() -> None:
                                 </div>
                             </div>
                             <div class="rd-kpi-grid">
-                                <div class="rd-kpi"><div class="rd-kpi-label">Индекс</div><div class="rd-kpi-value">82</div><div class="rd-kpi-note">Пилот оправдан</div></div>
+                                <div class="rd-kpi"><div class="rd-kpi-label">Индекс пилота</div><div class="rd-kpi-value">67</div><div class="rd-kpi-note">Тестировать осторожно</div></div>
                                 <div class="rd-kpi"><div class="rd-kpi-label">Спрос</div><div class="rd-kpi-value">+24%</div><div class="rd-kpi-note">6 месяцев</div></div>
-                                <div class="rd-kpi"><div class="rd-kpi-label">Конкуренция</div><div class="rd-kpi-value">Средняя</div><div class="rd-kpi-note">Есть окно входа</div></div>
-                                <div class="rd-kpi"><div class="rd-kpi-label">Сетевой сигнал</div><div class="rd-kpi-value">+31%</div><div class="rd-kpi-note">Обсуждения растут</div></div>
+                                <div class="rd-kpi"><div class="rd-kpi-label">Конкуренция</div><div class="rd-kpi-value">Средняя</div><div class="rd-kpi-note">56/100 по плотности</div></div>
+                                <div class="rd-kpi"><div class="rd-kpi-label">Отзывы и обсуждения</div><div class="rd-kpi-value">+31%</div><div class="rd-kpi-note">Обсуждения растут</div></div>
                             </div>
                             <div class="rd-grid-2">
                                 <div class="rd-panel">
@@ -1427,9 +2066,9 @@ def render_hero() -> None:
                                     <div class="rd-line-chart"><div class="rd-axis"><span>Янв</span><span>Мар</span><span>Май</span><span>Июл</span><span>Сен</span><span>Дек</span></div></div>
                                 </div>
                                 <div class="rd-panel">
-                                    <div class="rd-panel-title">Краткий вывод <span>AI summary</span></div>
-                                    <div class="rd-summary"><strong>Рекомендация</strong><p>Запускать пилот в двух районах. Центр города лучше рассматривать на втором этапе из-за стоимости входа.</p></div>
-                                    <div class="rd-tag-row"><span>Растущий спрос</span><span>Средняя конкуренция</span><span>Пилот</span><span>Риск бюджета</span></div>
+                                    <div class="rd-panel-title">Краткий вывод <span>для команды</span></div>
+                                    <div class="rd-summary"><strong>Тестировать осторожно</strong><p>Начать с Ново-Савиновского района, Советский добавить вторым. Центр города не брать в первый пилот из-за стоимости входа.</p></div>
+                                    <div class="rd-tag-row"><span>Ново-Савиновский старт</span><span>350 тыс. ₽</span><span>6-8 недель</span><span>Центр дорогой</span></div>
                                 </div>
                             </div>
                         </main>
@@ -1444,18 +2083,25 @@ def render_hero() -> None:
 def render_problem() -> None:
     html_block(
         """
-        <section class="rd-section" id="problem">
-            <div class="rd-section-head">
+        <section class="rd-section rd-problem-section" id="problem">
+            <div class="rd-problem-layout">
                 <div>
                     <div class="rd-eyebrow">Проблема</div>
-                    <h2>Данных много. Картина не складывается.</h2>
+                    <h2 class="rd-section-title rd-problem-title">Решение о запуске часто собирают из несвязанных источников</h2>
                 </div>
-                <p>Команды собирают таблицы, поисковые запросы, отчеты, страницы конкурентов и комментарии из сети. На это уходят часы или дни, а результат часто остается разрозненным.</p>
+                <div class="rd-manual-flow">
+                    <div class="rd-manual-flow-title"><span>Как это обычно выглядит</span><span>3-8 часов</span></div>
+                    <div class="rd-manual-step"><strong>Статистика</strong><span>город, доходы, районы роста</span></div>
+                    <div class="rd-manual-step"><strong>Спрос</strong><span>поисковые запросы и сезонность</span></div>
+                    <div class="rd-manual-step"><strong>Конкуренты</strong><span>карты, сайты, отзывы, акции</span></div>
+                    <div class="rd-manual-step"><strong>Решение</strong><span>район пилота и риск бюджета</span></div>
+                </div>
             </div>
-            <div class="rd-card-grid-3">
-                <div class="rd-card"><div class="num">01</div><h3>Источники разбросаны</h3><p>Официальная статистика, поведенческие сигналы и активность аудитории живут в разных местах.</p></div>
-                <div class="rd-card amber"><div class="num">02</div><h3>Анализ съедает время</h3><p>Команда тратит время на сбор и сверку вместо проверки гипотезы и выбора сценария.</p></div>
-                <div class="rd-card coral"><div class="num">03</div><h3>Сигнал приходит поздно</h3><p>Отчеты и продажи часто показывают изменение с задержкой, а сетевой спрос проявляется раньше.</p></div>
+            <p class="rd-problem-lead">Даже когда данные собраны, команде нужно понять, где тестировать предложение и какой риск у первого бюджета.</p>
+            <div class="rd-problem-list" style="margin-top:16px;">
+                <div class="rd-problem-item"><div class="rd-problem-num">01</div><div><h3>Нет одной картины</h3><p>Росстат, карты, выдача, сайты игроков и отзывы приходится сводить вручную.</p></div></div>
+                <div class="rd-problem-item"><div class="rd-problem-num">02</div><div><h3>Сложно выбрать район</h3><p>В центре может быть много спроса, но аренда, реклама и конкуренты быстро съедают бюджет.</p></div></div>
+                <div class="rd-problem-item"><div class="rd-problem-num">03</div><div><h3>Ошибки видны поздно</h3><p>Если пилот запущен не там, команда узнает это уже после расходов на рекламу и операцию.</p></div></div>
             </div>
         </section>
         """
@@ -1468,14 +2114,22 @@ def render_interactive_demo() -> None:
         <section class="rd-section" id="demo">
             <div class="rd-section-head">
                 <div>
-                    <div class="rd-eyebrow">Живой демо-сценарий</div>
-                    <h2>Выберите рынок. Получите первый вывод.</h2>
+                    <div class="rd-eyebrow">Демо-сценарий</div>
+                    <h2 class="rd-section-title">Проверьте тот же сценарий на своих вводных</h2>
                 </div>
-                <p>Это прототип логики RealDemand: пользователь задает регион, сферу и бюджет пилота, а система собирает скоринг, риски и следующий шаг.</p>
+                <p>Ниже тот же расчет, что на экране продукта: город, сфера и бюджет превращаются в индекс, район старта, риски и список проверяемых источников.</p>
             </div>
-            <div class="rd-native-panel">
-                <h3>Быстрая оценка запуска</h3>
-                <p>Сценарий основан на демонстрационных сигналах из макета: спрос, конкуренция, уверенность данных, сетевой шум и бюджет пилота.</p>
+            <div class="rd-demo-brief">
+                <div class="rd-demo-card">
+                    <h3>Сценарий: запуск клининга</h3>
+                    <p>Базовый пример: Казань, домашние сервисы, 350 тыс. ₽. Меняйте вводные и смотрите, как сервис пересобирает решение.</p>
+                </div>
+                <div class="rd-demo-note">
+                    <div><span>1. Вводные</span><strong>город, сфера, бюджет</strong></div>
+                    <div><span>2. Расчет</span><strong>спрос, конкуренты, отзывы</strong></div>
+                    <div><span>3. География</span><strong>район старта и второй этап</strong></div>
+                    <div><span>4. Вывод</span><strong>риск, ограничение, отчет</strong></div>
+                </div>
             </div>
         </section>
         """
@@ -1502,38 +2156,51 @@ def render_interactive_demo() -> None:
         f"""
             <div class="rd-native-panel">
                 <div class="rd-decision-grid">
-                    <div class="rd-decision-card"><span>Рекомендация</span><strong>{escape(launch_label)}</strong><em>{escape(sector.label)}</em></div>
-                    <div class="rd-decision-card"><span>Динамика спроса</span><strong>+{region.demand_growth}%</strong><em>последние 6 месяцев</em></div>
-                    <div class="rd-decision-card"><span>Конкуренция</span><strong>{escape(competition_label)}</strong><em>{region.competition}/100 по плотности</em></div>
-                    <div class="rd-decision-card"><span>Уверенность данных</span><strong>{region.confidence}%</strong><em>источники сходятся</em></div>
-                </div>
-                <div class="rd-grid-2">
-                    <div class="rd-panel">
-                        <div class="rd-panel-title">География спроса <span>{escape(region_name)}</span></div>
-                        <div class="rd-map">
-                            <div class="rd-map-card"><strong>{escape(region.district)} район</strong><p>{escape(region.note)}</p></div>
-                        </div>
-                    </div>
-                    <div class="rd-panel">
-                        <div class="rd-panel-title">Вывод для команды <span>версия 0.1</span></div>
-                        <div class="rd-summary"><strong>{escape(launch_label)}</strong><p>{escape(launch_note)} Слабое место рынка: {escape(sector.weak_spot.lower())}.</p></div>
-                        <div class="rd-tag-row">
-                            <span>Сетевой сигнал +{region.social_growth}%</span>
-                            <span>Бюджет {budget} тыс. ₽</span>
-                            <span>{escape(region.district)} район</span>
-                            <span>{escape(sector_name)}</span>
-                        </div>
-                        <div class="rd-source-list" style="margin-top:14px;">
-                            <div class="rd-source-item"><span>Официальная статистика</span><span>проверено</span></div>
-                            <div class="rd-source-item"><span>Поисковая динамика</span><span>рост</span></div>
-                            <div class="rd-source-item"><span>Конкуренты</span><span>{escape(competition_label.lower())}</span></div>
-                            <div class="rd-source-item"><span>Отзывы и обсуждения</span><span>+{region.social_growth}%</span></div>
-                        </div>
-                    </div>
+                    <div class="rd-decision-card"><span>Итог сервиса</span><strong>{escape(launch_label)}</strong><em>{escape(sector.label)}</em></div>
+                    <div class="rd-decision-card"><span>Первый район</span><strong>{escape(region.district)}</strong><em>по карте спроса</em></div>
+                    <div class="rd-decision-card"><span>Спрос</span><strong>+{region.demand_growth}%</strong><em>по запросам и отзывам</em></div>
+                    <div class="rd-decision-card"><span>Главный риск</span><strong>{escape(competition_label)}</strong><em>{escape(sector.weak_spot.lower())}</em></div>
                 </div>
             </div>
         """
     )
+
+    html_block("""<div class="rd-demo-results-gap"></div>""")
+
+    map_col, summary_col = st.columns([1.08, 0.92], gap="medium")
+    with map_col:
+        with st.container(border=True, key="rd_map_panel"):
+            html_block(
+                f"""
+                    <div class="rd-map-head">
+                        <div class="rd-panel-title">Карта районов <span>{escape(region_name)}</span></div>
+                        <p class="rd-map-helper">Карта отвечает на вопрос “где начать”: зеленый район идет в первый пилот, синий можно добавить вторым, красный дорогой для входа.</p>
+                    </div>
+                """
+            )
+            render_region_map(region_name)
+            render_map_legend(region_name)
+
+    with summary_col:
+        with st.container(border=True, key="rd_summary_panel"):
+            html_block(
+                f"""
+                    <div class="rd-panel-title">Вывод для команды <span>демо-расчет</span></div>
+                    <div class="rd-summary"><strong>{escape(launch_label)}</strong><p>Первый тест: {escape(region.district)} район. {escape(launch_note)} Слабое место рынка: {escape(sector.weak_spot.lower())}.</p></div>
+                    <div class="rd-tag-row">
+                        <span>Отзывы и обсуждения +{region.social_growth}%</span>
+                        <span>Бюджет {budget} тыс. ₽</span>
+                        <span>{escape(region.district)}</span>
+                        <span>{escape(sector_name)}</span>
+                    </div>
+                    <div class="rd-source-list" style="margin-top:14px;">
+                        <div class="rd-source-item"><span>Район старта</span><span>{escape(region.district)}</span></div>
+                        <div class="rd-source-item"><span>Сигнал спроса</span><span>+{region.demand_growth}%</span></div>
+                        <div class="rd-source-item"><span>Плотность конкурентов</span><span>{escape(competition_label.lower())}</span></div>
+                        <div class="rd-source-item"><span>Что проверить руками</span><span>{escape(sector.weak_spot.lower())}</span></div>
+                    </div>
+                """
+            )
 
 
 def render_product() -> None:
@@ -1543,68 +2210,95 @@ def render_product() -> None:
             <div class="rd-section-head">
                 <div>
                     <div class="rd-eyebrow">Продукт</div>
-                    <h2>Рабочий интерфейс для рыночной разведки.</h2>
+                    <h2 class="rd-section-title">Что делает сервис в этом сценарии</h2>
                 </div>
-                <p>Система устроена как B2B-аналитический кабинет: фильтры, источники, карта спроса, конкурентная среда, сценарии запуска и отчет для обсуждения внутри команды.</p>
+                <p>Скрин ниже показывает тот же сценарий, что демо: сервис принимает вводные, считает факторы, выбирает район для пилота и собирает аргументы для решения команды.</p>
             </div>
             <div class="rd-product-shell">
                 <div class="rd-window-bar">
                     <div class="rd-chip-row">
                         <div class="rd-dots"><span></span><span></span><span></span></div>
-                        <div class="rd-window-title">RealDemand / Competitive Intelligence</div>
+                        <div class="rd-window-title">RealDemand / Сценарий пилота</div>
                     </div>
                     <div class="rd-chip-row">
-                        <span class="rd-chip">Top players</span>
-                        <span class="rd-chip">Signals</span>
-                        <span class="rd-chip dark">Alerts on</span>
+                        <span class="rd-chip">Казань</span>
+                        <span class="rd-chip">Домашние сервисы</span>
+                        <span class="rd-chip dark">350 тыс. ₽</span>
                     </div>
                 </div>
                 <div class="rd-dashboard">
                     <aside class="rd-sidebar">
                         <div class="rd-side-brand"><span class="rd-side-dot"></span>RealDemand</div>
                         <div class="rd-side-label">Рабочая область</div>
-                        <div class="rd-side-item"><span>Обзор рынка</span></div>
-                        <div class="rd-side-item"><span>География спроса</span></div>
-                        <div class="rd-side-item active"><span>Конкуренты</span></div>
-                        <div class="rd-side-item"><span>Сценарии</span></div>
-                        <div class="rd-side-label">Сигналы</div>
-                        <div class="rd-side-item active"><span>Упоминания</span></div>
+                        <div class="rd-side-item active"><span>Сценарий пилота</span><span>01</span></div>
+                        <div class="rd-side-item active"><span>Карта районов</span><span>02</span></div>
+                        <div class="rd-side-item"><span>Конкуренты</span><span>03</span></div>
+                        <div class="rd-side-item"><span>Отчет</span><span>04</span></div>
+                        <div class="rd-side-label">Источники</div>
+                        <div class="rd-side-item active"><span>Статистика</span></div>
+                        <div class="rd-side-item active"><span>Поиск</span></div>
                         <div class="rd-side-item active"><span>Отзывы</span></div>
-                        <div class="rd-side-item"><span>Реклама</span></div>
                     </aside>
                     <main class="rd-main">
+                        <div class="rd-topline">
+                            <div class="rd-breadcrumbs">Проекты / Домашние сервисы / Казань</div>
+                            <div class="rd-mini-actions">
+                                <span class="rd-mini-button">Источники</span>
+                                <span class="rd-mini-button">Карта</span>
+                                <span class="rd-mini-button primary">Отчет</span>
+                            </div>
+                        </div>
                         <div class="rd-dashboard-title">
                             <div>
-                                <h2>Конкурентная среда</h2>
-                                <p>Игроки, сила присутствия, динамика интереса, отзывы и признаки активности в сети.</p>
+                                <h2>Пилот клининга в Казани</h2>
+                                <p>Задача: понять, стоит ли запускать предложение и какой район взять первым при бюджете 350 тыс. ₽.</p>
                             </div>
                             <div class="rd-health">
-                                <div class="rd-health-label"><span>Рыночная плотность</span><span>62%</span></div>
-                                <div class="rd-health-bar"><span style="width:62%"></span></div>
+                                <div class="rd-health-label"><span>Уверенность данных</span><span>84%</span></div>
+                                <div class="rd-health-bar"><span style="width:84%"></span></div>
                             </div>
+                        </div>
+                        <div class="rd-kpi-grid">
+                            <div class="rd-kpi"><div class="rd-kpi-label">Индекс пилота</div><div class="rd-kpi-value">67</div><div class="rd-kpi-note">Тестировать осторожно</div></div>
+                            <div class="rd-kpi"><div class="rd-kpi-label">Спрос</div><div class="rd-kpi-value">+24%</div><div class="rd-kpi-note">запросы и отзывы</div></div>
+                            <div class="rd-kpi"><div class="rd-kpi-label">Конкуренция</div><div class="rd-kpi-value">Средняя</div><div class="rd-kpi-note">56/100 по плотности</div></div>
+                            <div class="rd-kpi"><div class="rd-kpi-label">Первый район</div><div class="rd-kpi-value small">Ново-Савиновский</div><div class="rd-kpi-note">старт пилота</div></div>
                         </div>
                         <div class="rd-grid-2">
                             <div class="rd-panel">
-                                <div class="rd-panel-title">Активность игроков <span>упоминания / отзывы</span></div>
-                                <div class="rd-line-chart"><div class="rd-axis"><span>CleanPro</span><span>HomeFresh</span><span>City</span><span>Chisto24</span></div></div>
+                                <div class="rd-panel-title">Вводные пользователя <span>что выбрано</span></div>
+                                <div class="rd-source-list">
+                                    <div class="rd-source-item"><span>Город</span><span>Казань</span></div>
+                                    <div class="rd-source-item"><span>Сфера</span><span>Домашние сервисы</span></div>
+                                    <div class="rd-source-item"><span>Бюджет пилота</span><span>350 тыс. ₽</span></div>
+                                    <div class="rd-source-item"><span>Задача</span><span>выбрать район старта</span></div>
+                                </div>
                             </div>
                             <div class="rd-panel">
-                                <div class="rd-panel-title">Топ игроков <span>по силе сигнала</span></div>
-                                <div class="rd-source-list">
-                                    <div class="rd-source-item"><span>CleanPro</span><span>+12%</span></div>
-                                    <div class="rd-source-item"><span>HomeFresh</span><span>+7%</span></div>
-                                    <div class="rd-source-item"><span>City Clean</span><span>+19%</span></div>
-                                    <div class="rd-source-item"><span>Chisto24</span><span>локальный</span></div>
-                                </div>
+                                <div class="rd-panel-title">Вывод сервиса <span>для обсуждения</span></div>
+                                <div class="rd-summary"><strong>Тестировать осторожно</strong><p>Начать с Ново-Савиновского района. Советский оставить вторым, центр не брать в первый пилот из-за дорогого входа.</p></div>
+                                <div class="rd-tag-row"><span>Ново-Савиновский старт</span><span>Советский вторым</span><span>центр дорогой</span><span>6-8 недель</span></div>
                             </div>
                         </div>
                         <div class="rd-grid-3">
-                            <div class="rd-panel"><div class="rd-panel-title">Слабые места рынка</div><div class="rd-source-list"><div class="rd-source-item"><span>Мало игроков 24/7</span><span>окно</span></div><div class="rd-source-item"><span>Отзывы о скорости</span><span>боль</span></div></div></div>
-                            <div class="rd-panel"><div class="rd-panel-title">Растущие темы</div><div class="rd-source-list"><div class="rd-source-item"><span>Уборка после ремонта</span><span>+28%</span></div><div class="rd-source-item"><span>Экспресс-заказ</span><span>+22%</span></div></div></div>
-                            <div class="rd-panel"><div class="rd-panel-title">Финальный вывод</div><div class="rd-summary"><strong>Конкуренция</strong><p>Рынок занят, но в отдельных сценариях спрос растет быстрее, чем предложение.</p></div></div>
+                            <div class="rd-panel"><div class="rd-panel-title">География</div><div class="rd-source-list"><div class="rd-source-item"><span>Ново-Савиновский</span><span>старт</span></div><div class="rd-source-item"><span>Советский</span><span>второй район</span></div><div class="rd-source-item"><span>Вахитовский центр</span><span>дорого</span></div></div></div>
+                            <div class="rd-panel"><div class="rd-panel-title">Почему так</div><div class="rd-source-list"><div class="rd-source-item"><span>Поисковый спрос</span><span>+24%</span></div><div class="rd-source-item"><span>Отзывы и обсуждения</span><span>+31%</span></div><div class="rd-source-item"><span>Плотность конкурентов</span><span>56/100</span></div></div></div>
+                            <div class="rd-panel"><div class="rd-panel-title">Что получает команда</div><div class="rd-source-list"><div class="rd-source-item"><span>Риск бюджета</span><span>ограничить район</span></div><div class="rd-source-item"><span>Проверка руками</span><span>скорость отклика</span></div><div class="rd-source-item"><span>Экспорт</span><span>отчет с источниками</span></div></div></div>
                         </div>
                     </main>
                 </div>
+            </div>
+            <div class="rd-user-flow">
+                <div class="rd-user-flow-head">
+                    <h3>Какие задачи закрывает сервис</h3>
+                    <p>Один расчет нужен не ради красивого индекса. Он помогает команде быстрее договориться, где запускать пилот, что проверить руками и какие ограничения поставить бюджету.</p>
+	                </div>
+	                <div class="rd-flow-grid">
+                    <div class="rd-flow-step"><span>Задача 01</span><strong>Проверить гипотезу</strong><p>Понять, хватает ли спроса для пилота в выбранном городе и сфере.</p></div>
+                    <div class="rd-flow-step"><span>Задача 02</span><strong>Выбрать район старта</strong><p>Сравнить районы и не тратить первый бюджет на слишком дорогую точку входа.</p></div>
+                    <div class="rd-flow-step"><span>Задача 03</span><strong>Ограничить риск бюджета</strong><p>Увидеть конкуренцию, слабые места рынка и условия, которые нужно проверить руками.</p></div>
+                    <div class="rd-flow-step"><span>Задача 04</span><strong>Собрать решение</strong><p>Получить короткий вывод с источниками, рисками, районом и следующим шагом.</p></div>
+	                </div>
             </div>
         </section>
         """
@@ -1618,30 +2312,30 @@ def render_sources_and_cases() -> None:
             <div class="rd-section-head">
                 <div>
                     <div class="rd-eyebrow">Данные</div>
-                    <h2>Проверяем. Сверяем. Решаем.</h2>
+                    <h2 class="rd-section-title">Каким данным можно доверять</h2>
                 </div>
-                <p>Источники подбираются под задачу: для региональной оценки важны одни данные, для конкурентного анализа другие, для раннего тренда третьи.</p>
+                <p>Для одного рынка хватает статистики и карт, для другого нужны отзывы и поисковая динамика. Если источников мало или они спорят между собой, это показывается как риск.</p>
             </div>
-            <div class="rd-card-grid-4">
-                <div class="rd-card"><div class="num">Официальная статистика</div><h3>База региона</h3><p>Демография, доходы, занятость, структура отраслей и количество компаний.</p></div>
-                <div class="rd-card blue"><div class="num">Потребительская динамика</div><h3>Живой спрос</h3><p>Индексы и поведенческие сигналы показывают, что происходит сейчас.</p></div>
-                <div class="rd-card amber"><div class="num">Сеть и медиа</div><h3>Ранний шум</h3><p>Обсуждения, отзывы и упоминания помогают ловить движение до отчетов.</p></div>
-                <div class="rd-card green"><div class="num">Конкуренты</div><h3>Кто уже там</h3><p>Сайты, карточки компаний, выдача и соцсети показывают плотность рынка.</p></div>
+            <div class="rd-card-grid-4 rd-compact-grid">
+                <div class="rd-card"><div class="num">Статистика</div><h3>Размер рынка</h3><p>Население, доходы, занятость, районы роста и количество компаний в категории.</p></div>
+                <div class="rd-card blue"><div class="num">Спрос</div><h3>Что ищут люди</h3><p>Запросы, сезонность, темы в отзывах и признаки регулярной потребности.</p></div>
+                <div class="rd-card amber"><div class="num">Отзывы</div><h3>Где болит</h3><p>Жалобы на скорость, график, цену и качество помогают найти незакрытый сценарий.</p></div>
+                <div class="rd-card green"><div class="num">Конкуренты</div><h3>Кто мешает входу</h3><p>Карты, сайты, выдача, акции и частота отзывов показывают плотность игроков.</p></div>
             </div>
         </section>
         <section class="rd-section" id="cases">
             <div class="rd-section-head">
                 <div>
                     <div class="rd-eyebrow">Сценарии</div>
-                    <h2>Аналитика для рабочих решений.</h2>
+                    <h2 class="rd-section-title">Для каких решений использовать</h2>
                 </div>
-                <p>RealDemand нужен командам, которые выбирают регион, оценивают спрос, сравнивают конкурентов и готовят аргументацию для решения.</p>
+                <p>Лендинг показывает один пример, но продукт полезен в нескольких повторяющихся задачах: новый город, новая ниша, мониторинг и отчет для обсуждения.</p>
             </div>
-            <div class="rd-card-grid-4">
-                <div class="rd-card"><div class="num">Сценарий 01</div><h3>Новый регион</h3><p>Понять, в какой город или район выходить и где конкуренция терпимая.</p></div>
-                <div class="rd-card"><div class="num">Сценарий 02</div><h3>Новая сфера</h3><p>Сравнить соседние категории и найти спрос при приемлемой конкуренции.</p></div>
-                <div class="rd-card"><div class="num">Сценарий 03</div><h3>Мониторинг</h3><p>Отслеживать отзывы, посты, обсуждения, новых игроков и всплески интереса.</p></div>
-                <div class="rd-card"><div class="num">Сценарий 04</div><h3>Отчет</h3><p>Собрать PDF/Word с выводом, источниками и понятной логикой.</p></div>
+            <div class="rd-card-grid-4 rd-compact-grid">
+                <div class="rd-card"><div class="num">Сценарий 01</div><h3>Новый город</h3><p>Сравнить 3-5 городов и выбрать, где начинать пилот дешевле и понятнее.</p></div>
+                <div class="rd-card"><div class="num">Сценарий 02</div><h3>Новая ниша</h3><p>Проверить соседние категории: клининг, ремонт, детские кружки, фитнес-студии.</p></div>
+                <div class="rd-card"><div class="num">Сценарий 03</div><h3>Мониторинг</h3><p>Раз в неделю видеть новые отзывы, акции конкурентов и всплески поискового спроса.</p></div>
+                <div class="rd-card"><div class="num">Сценарий 04</div><h3>Отчет</h3><p>Собрать короткий документ: вводные, источники, риски, рекомендация и следующий шаг.</p></div>
             </div>
         </section>
         """
@@ -1655,15 +2349,15 @@ def render_result() -> None:
             <div class="rd-section-head">
                 <div>
                     <div class="rd-eyebrow">Результат</div>
-                    <h2>От источников к рабочему выводу.</h2>
+                    <h2 class="rd-section-title">На выходе не обещание успеха, а план безопасного пилота</h2>
                 </div>
-                <p>Команда видит не только рекомендацию, но и ограничения данных: где источники сходятся, где спорят между собой и какой риск остается.</p>
+                <p>RealDemand не заменяет решение команды. Он помогает быстро увидеть, где гипотеза выглядит сильной, где источники слабые и что нужно проверить в первые недели.</p>
             </div>
             <div class="rd-compare">
-                <div class="rd-compare-row"><div class="rd-compare-cell"><strong>Было</strong>3-8 часов ручного анализа</div><div class="rd-compare-cell"><strong>Стало</strong>15-30 минут до первого вывода</div></div>
-                <div class="rd-compare-row"><div class="rd-compare-cell"><strong>Было</strong>таблицы, статьи, поисковые сигналы и хаос</div><div class="rd-compare-cell"><strong>Стало</strong>единая картина по спросу, конкурентам и регионам</div></div>
-                <div class="rd-compare-row"><div class="rd-compare-cell"><strong>Было</strong>“рынок выглядит интересным”</div><div class="rd-compare-cell"><strong>Стало</strong>“вот сигналы роста, конкуренция и риски”</div></div>
-                <div class="rd-compare-row"><div class="rd-compare-cell"><strong>Было</strong>поздняя реакция на рост интереса</div><div class="rd-compare-cell"><strong>Стало</strong>ранние сигналы из поиска, конкурентов и сети</div></div>
+                <div class="rd-compare-row"><div class="rd-compare-cell"><strong>Было</strong>3-8 часов на ручной сбор ссылок и таблиц</div><div class="rd-compare-cell"><strong>Стало</strong>15-30 минут до первой версии гипотезы</div></div>
+                <div class="rd-compare-row"><div class="rd-compare-cell"><strong>Было</strong>“в Казани вроде есть спрос”</div><div class="rd-compare-cell"><strong>Стало</strong>“начать с Савиновского района, центр отложить”</div></div>
+                <div class="rd-compare-row"><div class="rd-compare-cell"><strong>Было</strong>спор о том, каким источникам верить</div><div class="rd-compare-cell"><strong>Стало</strong>видно, где данные сходятся, а где нужен ручной звонок или проверка</div></div>
+                <div class="rd-compare-row"><div class="rd-compare-cell"><strong>Было</strong>решение без понятного критерия успеха</div><div class="rd-compare-cell"><strong>Стало</strong>пилот на 6-8 недель с метриками спроса и стоимости заявки</div></div>
             </div>
         </section>
         """
@@ -1677,15 +2371,15 @@ def render_pricing() -> None:
             <div class="rd-section-head">
                 <div>
                     <div class="rd-eyebrow">Форматы</div>
-                    <h2>Разные задачи. Разные форматы.</h2>
+                    <h2 class="rd-section-title">Можно купить один отчет или подключить регулярную проверку рынков</h2>
                 </div>
-                <p>Разовый отчет подходит для быстрой проверки гипотезы, подписка для регулярного мониторинга, API для аналитических команд, коробка для внутреннего контура.</p>
+                <p>Если нужно проверить одну идею, подойдет отчет. Если команда постоянно выбирает регионы, ниши и конкурентов, выгоднее подписка или API.</p>
             </div>
             <div class="rd-price-grid">
-                <div class="rd-price"><h3>Разовый отчет</h3><div class="rd-price-value">19 900 ₽</div><div class="rd-price-sub">за 1 исследование</div><ul><li>Одна сфера, регион или категория</li><li>PDF/Word-отчет с источниками</li><li>Быстрая проверка гипотезы</li></ul><a class="rd-btn secondary" href="mailto:demo@realdemand.ai?subject=Разовый отчет">Заказать</a></div>
+                <div class="rd-price"><h3>Разовый отчет</h3><div class="rd-price-value">19 900 ₽</div><div class="rd-price-sub">за 1 исследование</div><ul><li>Один город, район или категория</li><li>PDF/Word с источниками и рисками</li><li>Подходит для защиты пилота</li></ul><a class="rd-btn secondary" href="mailto:demo@realdemand.ai?subject=Разовый отчет">Заказать</a></div>
                 <div class="rd-price"><h3>SaaS Start</h3><div class="rd-price-value">14 900 ₽</div><div class="rd-price-sub">в месяц</div><ul><li>10 анализов в месяц</li><li>1 пользователь</li><li>Базовый индекс сферы</li><li>Экспорт отчета</li></ul><a class="rd-btn secondary" href="mailto:demo@realdemand.ai?subject=SaaS Start">Начать</a></div>
-                <div class="rd-price featured"><div class="rd-badge">Популярно</div><h3>SaaS Growth</h3><div class="rd-price-value">29 900 ₽</div><div class="rd-price-sub">в месяц</div><ul><li>30 анализов в месяц</li><li>3 пользователя</li><li>Конкуренты, география и динамика</li><li>Мониторинг сетевой активности</li></ul><a class="rd-btn" href="mailto:demo@realdemand.ai?subject=SaaS Growth">Запросить демо</a></div>
-                <div class="rd-price"><h3>API / Data Feed</h3><div class="rd-price-value">от 49 900 ₽</div><div class="rd-price-sub">в месяц</div><ul><li>Интеграция с BI/CRM</li><li>Доступ к индексам и данным</li><li>Регулярное обновление сигналов</li></ul><a class="rd-btn secondary" href="mailto:demo@realdemand.ai?subject=API">Обсудить API</a></div>
+                <div class="rd-price featured"><div class="rd-badge">Популярно</div><h3>SaaS Growth</h3><div class="rd-price-value">29 900 ₽</div><div class="rd-price-sub">в месяц</div><ul><li>30 анализов в месяц</li><li>3 пользователя</li><li>Карта спроса и конкурентов</li><li>Еженедельный мониторинг отзывов</li></ul><a class="rd-btn" href="mailto:demo@realdemand.ai?subject=SaaS Growth">Запросить демо</a></div>
+                <div class="rd-price"><h3>API / Поток данных</h3><div class="rd-price-value">от 49 900 ₽</div><div class="rd-price-sub">в месяц</div><ul><li>Интеграция с BI/CRM</li><li>Доступ к индексам и данным</li><li>Еженедельное обновление данных</li></ul><a class="rd-btn secondary" href="mailto:demo@realdemand.ai?subject=API">Обсудить API</a></div>
                 <div class="rd-price"><h3>Коробка</h3><div class="rd-price-value">от 249 900 ₽</div><div class="rd-price-sub">внедрение + поддержка</div><ul><li>Внутренний контур</li><li>Источники под компанию</li><li>Роли, доступы и безопасность</li></ul><a class="rd-btn secondary" href="mailto:demo@realdemand.ai?subject=Коробка">Условия</a></div>
             </div>
         </section>
@@ -1701,21 +2395,21 @@ def render_faq_and_final() -> None:
                 <div>
                     <div class="rd-eyebrow">FAQ</div>
                     <div class="rd-section-head" style="display:block; margin-bottom:0;">
-                        <h2>Ответы на частые вопросы.</h2>
+                        <h2 class="rd-section-title">Ответы на частые вопросы</h2>
                     </div>
                 </div>
                 <div class="rd-faq-list">
-                    <details class="rd-faq" open><summary>Откуда берутся данные?</summary><p>Из источников под конкретную задачу: официальная статистика, потребительские индексы, поисковая динамика, открытые страницы конкурентов, соцсети и медиа.</p></details>
-                    <details class="rd-faq"><summary>Как проверяется качество?</summary><p>Вывод привязывается к источникам и типам сигналов. Если данных мало или они противоречат друг другу, отчет показывает это как риск.</p></details>
-                    <details class="rd-faq"><summary>Зачем смотреть сеть?</summary><p>Интерес часто сначала появляется в обсуждениях, отзывах, постах, карточках компаний и поиске. Продажи и официальные отчеты догоняют позже.</p></details>
-                    <details class="rd-faq"><summary>Какие есть форматы доступа?</summary><p>Доступны разовый отчет, SaaS-подписка, API/Data Feed и коробочная поставка.</p></details>
+                    <details class="rd-faq" open><summary>Откуда берутся данные?</summary><p>Из открытых источников под задачу: статистика региона, поисковая динамика, карты, сайты конкурентов, отзывы, соцсети и медиа.</p></details>
+                    <details class="rd-faq"><summary>Как сервис не превращается в «магический ответ»?</summary><p>Каждый вывод связан с источниками и весами факторов. Если данных мало, отчет не делает вид, что все ясно, а показывает слабое место.</p></details>
+                    <details class="rd-faq"><summary>Зачем смотреть отзывы и обсуждения?</summary><p>Там раньше видно бытовые проблемы: долго отвечают, нет вечернего выезда, дорого после ремонта, сложно записаться. Это помогает найти сценарий для пилота.</p></details>
+                    <details class="rd-faq"><summary>Какие есть форматы доступа?</summary><p>Доступны разовый отчет, SaaS-подписка, API с потоком данных и коробочная поставка.</p></details>
                 </div>
             </div>
             <div class="rd-final">
                 <div>
                     <div class="rd-eyebrow" style="background:#fff;">Следующий шаг</div>
-                    <h2>Оцените рынок до запуска.</h2>
-                    <p>Запросите демо RealDemand. Покажем, как из статистики, спроса, конкурентов и сетевых сигналов собрать аргументированную оценку рынка.</p>
+                    <h2 class="rd-section-title">Разберите один реальный запуск до расходов на рекламу и аренду</h2>
+                    <p>На демо можно взять ваш город, сферу и бюджет пилота. Покажем, какие источники нужны и где решение пока держится на слабых данных.</p>
                 </div>
                 <a class="rd-btn" href="mailto:demo@realdemand.ai?subject=Запрос демо RealDemand">Получить демо</a>
             </div>
