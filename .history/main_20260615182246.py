@@ -2427,7 +2427,7 @@ def render_hero() -> None:
                 <div class="rd-eyebrow">Обзор продукта</div>
                 <h1 class="rd-title-xl">RealDemand выбирает, где запускать пилот</h1>
                 <p class="rd-lead">Сервис показывает район старта, конкурентов, спрос, риски бюджета и источники для решения о запуске.</p>
-                <p class="rd-note">Клиент покупает быстрый ответ перед расходами на рекламу и операцию: разовый отчет от 1 990 ₽ или подписку для регулярных запусков.</p>
+                <p class="rd-note">Клиент покупает быстрый ответ перед расходами на рекламу и операцию: разовый отчет от 19 900 ₽ или подписку для регулярных запусков.</p>
                 <div class="rd-actions">
                     <a class="rd-btn" href="#market">Смотреть обзор</a>
                     <a class="rd-btn secondary" href="#demo">Открыть прототип</a>
@@ -2706,7 +2706,7 @@ def render_sources_and_cases() -> None:
                 <div class="rd-evidence-card"><span>Кабинет</span><h3>Повторные расчеты</h3><p>Новые районы, города, ниши и сравнение сценариев.</p></div>
                 <div class="rd-evidence-card"><span>Мониторинг</span><h3>Конкуренты и отзывы</h3><p>Еженедельные изменения рынка для команд роста.</p></div>
                 <div class="rd-evidence-card"><span>Экспорт</span><h3>Отчет для команды</h3><p>Короткий документ для обсуждения бюджета пилота.</p></div>
-                <div class="rd-evidence-card"><span>Цена</span><h3>1&nbsp;990&nbsp;₽ → 29&nbsp;900&nbsp;₽</h3><p>Разовый вход и подписка для регулярных запусков.</p></div>
+                <div class="rd-evidence-card"><span>Цена</span><h3>19&nbsp;900&nbsp;₽ → 29&nbsp;900&nbsp;₽</h3><p>Разовый вход и подписка для регулярных запусков.</p></div>
                 <div class="rd-evidence-card"><span>Покупатель</span><h3>Владелец / рост / маркетинг</h3><p>Тот, кто отвечает за первый бюджет запуска.</p></div>
             </div>
         </section>
@@ -2796,7 +2796,7 @@ def render_pricing() -> None:
                 <p>Разовый отчет запускает продажу без длинного внедрения. Подписка подходит командам, которые регулярно выбирают новые районы, города или отслеживают конкурентов.</p>
             </div>
             <div class="rd-price-grid">
-                <div class="rd-price"><h3>Разовый отчет</h3><div class="rd-price-value">1&nbsp;990&nbsp;₽</div><div class="rd-price-sub">за 1 исследование</div><ul><li>Один город, район или категория</li><li>Короткий отчет с источниками и рисками</li><li>Низкий вход для первого платного пилота</li></ul><div class="rd-badge">Вход в продукт</div></div>
+                <div class="rd-price"><h3>Разовый отчет</h3><div class="rd-price-value">19&nbsp;900&nbsp;₽</div><div class="rd-price-sub">за 1 исследование</div><ul><li>Один город, район или категория</li><li>Короткий отчет с источниками и рисками</li><li>Низкий вход для первого платного пилота</li></ul><div class="rd-badge">Вход в продукт</div></div>
                 <div class="rd-price"><h3>SaaS Start</h3><div class="rd-price-value">14&nbsp;900&nbsp;₽</div><div class="rd-price-sub">в месяц</div><ul><li>10 анализов в месяц</li><li>1 пользователь</li><li>Базовый индекс сферы</li><li>Экспорт отчета</li></ul><div class="rd-badge">Малые команды</div></div>
                 <div class="rd-price featured"><div class="rd-badge">Основная модель</div><h3>SaaS Growth</h3><div class="rd-price-value">29&nbsp;900&nbsp;₽</div><div class="rd-price-sub">в месяц</div><ul><li>30 анализов в месяц</li><li>3 пользователя</li><li>Карта спроса и конкурентов</li><li>Еженедельный мониторинг отзывов</li></ul><div class="rd-badge">Повторяемая выручка</div></div>
                 <div class="rd-price"><h3>API / Поток данных</h3><div class="rd-price-value">от&nbsp;49&nbsp;900&nbsp;₽</div><div class="rd-price-sub">в месяц</div><ul><li>Интеграция с BI/CRM</li><li>Доступ к индексам и данным</li><li>Еженедельное обновление данных</li></ul><div class="rd-badge">Для зрелых команд</div></div>
@@ -2856,7 +2856,7 @@ def render_faq_and_final() -> None:
                     <details class="rd-faq" open><summary>Кто целевая аудитория?</summary><p>Команды, которые отвечают за запуск в новом городе, районе или нише: владельцы МСБ, франчайзи, продуктовые команды, команды роста и маркетинг локальных сервисов.</p></details>
                     <details class="rd-faq"><summary>В чем отличие продукта?</summary><p>RealDemand связывает данные с решением: индекс пилота, район старта, риск бюджета, источники и ограничения.</p></details>
                     <details class="rd-faq"><summary>Кто конкуренты?</summary><p>Ручная аналитика, исследовательские агентства, BI/рыночные базы и внутренние аналитики. Отличие - фокус на быстром сценарии запуска.</p></details>
-                    <details class="rd-faq"><summary>Как зарабатывает продукт?</summary><p>Разовый отчет за 1&nbsp;990&nbsp;₽, SaaS-подписки 14&nbsp;900/29&nbsp;900&nbsp;₽ в месяц, API от 49&nbsp;900&nbsp;₽ и внедрение от 249&nbsp;900&nbsp;₽.</p></details>
+                    <details class="rd-faq"><summary>Как зарабатывает продукт?</summary><p>Разовый отчет за 19&nbsp;900&nbsp;₽, SaaS-подписки 14&nbsp;900/29&nbsp;900&nbsp;₽ в месяц, API от 49&nbsp;900&nbsp;₽ и внедрение от 249&nbsp;900&nbsp;₽.</p></details>
                     <details class="rd-faq"><summary>Какие метрики показывают прогресс?</summary><p>Оплаченные отчеты, повторные запросы, переход в подписку, маржа отчета и стоимость привлечения клиента.</p></details>
                     <details class="rd-faq"><summary>Какая ближайшая цель продаж?</summary><p>2-3 оплаченных отчета и 1-2 повторных запроса от тех же или похожих клиентов.</p></details>
                     <details class="rd-faq"><summary>Какой MVP?</summary><p>Веб-кабинет на 1-2 вертикалях и 3-5 городах: вводные, индекс, карта районов, объяснение факторов и экспорт короткого отчета.</p></details>
