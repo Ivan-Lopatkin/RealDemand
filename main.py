@@ -1,2498 +1,699 @@
 from __future__ import annotations
 
+import base64
 from dataclasses import dataclass
 from html import escape
+from pathlib import Path
 
-import pydeck as pdk
 import streamlit as st
 
 
+ASSET_DIR = Path(__file__).parent / "assets"
+ARCHITECTURE_IMAGE = ASSET_DIR / "realdemand_architecture.jpg"
+
+
 @dataclass(frozen=True)
-class RegionSignal:
+class LocationCandidate:
+    district: str
+    base_score: int
     demand: int
     competition: int
-    confidence: int
-    district: str
-    demand_growth: int
-    social_growth: int
-    note: str
+    traffic: int
+    rent: str
+    reason: str
+    warning: str
 
 
-@dataclass(frozen=True)
-class SectorSignal:
-    base: int
-    label: str
-    weak_spot: str
-
-
-REGIONS: dict[str, RegionSignal] = {
-    "Казань": RegionSignal(
-        demand=78,
-        competition=56,
-        confidence=84,
-        district="Ново-Савиновский",
-        demand_growth=24,
-        social_growth=31,
-        note="Начать с Ново-Савиновского, Советский добавить вторым, центр оставить на второй этап.",
-    ),
-    "Екатеринбург": RegionSignal(
-        demand=72,
-        competition=64,
-        confidence=79,
-        district="Академический",
-        demand_growth=19,
-        social_growth=26,
-        note="Спрос устойчивый, но нужен аккуратный выбор ниши и позиционирования.",
-    ),
-    "Новосибирск": RegionSignal(
-        demand=69,
-        competition=48,
-        confidence=76,
-        district="Заельцовский",
-        demand_growth=17,
-        social_growth=22,
-        note="Есть пространство для теста в районах с растущей жилой застройкой.",
-    ),
-    "Нижний Новгород": RegionSignal(
-        demand=65,
-        competition=52,
-        confidence=73,
-        district="Советский",
-        demand_growth=14,
-        social_growth=18,
-        note="Рынок подходит для осторожного запуска с контролем стоимости заявки.",
-    ),
-}
-
-SECTORS: dict[str, SectorSignal] = {
-    "Домашние сервисы": SectorSignal(
-        base=8,
-        label="B2C / регулярный спрос",
-        weak_spot="Скорость отклика и работа вечером",
-    ),
-    "Кофейня у дома": SectorSignal(
-        base=2,
-        label="HoReCa / локальная точка",
-        weak_spot="Высокая арендная нагрузка в центре",
-    ),
-    "Фитнес-студия": SectorSignal(
-        base=4,
-        label="Wellness / подписка",
-        weak_spot="Сезонность и цена привлечения",
-    ),
-    "Детские кружки": SectorSignal(
-        base=6,
-        label="EdTech offline / семейный спрос",
-        weak_spot="Доверие родителей и расписание",
-    ),
-}
-
-COMPETITOR_EXAMPLES: dict[str, list[tuple[str, str, str]]] = {
-    "Домашние сервисы": [
-        ("Клининг 116", "много отзывов", "сильная выдача в центре"),
-        ("Чистый дом", "быстрый отклик", "слабее вечерние слоты"),
-        ("Мастер чистоты", "низкий чек", "меньше доверия в отзывах"),
+LOCATION_DATA: dict[str, list[LocationCandidate]] = {
+    "Москва": [
+        LocationCandidate("Таганский", 87, 91, 63, 88, "высокая", "сильный поток и платежеспособный спрос", "дорогая аренда"),
+        LocationCandidate("Хорошево-Мневники", 82, 84, 52, 76, "средняя+", "растущий жилой массив и умеренная конкуренция", "нужно проверять вечерний поток"),
+        LocationCandidate("Южнопортовый", 75, 78, 48, 68, "средняя", "ниже конкуренция и понятная аудитория рядом", "спрос зависит от формата точки"),
     ],
-    "Кофейня у дома": [
-        ("Coffee Point", "пешеходный трафик", "высокая аренда"),
-        ("Булочная рядом", "утренний спрос", "узкий ассортимент"),
-        ("Local Beans", "лояльная аудитория", "мало точек"),
+    "Санкт-Петербург": [
+        LocationCandidate("Петроградский", 85, 87, 66, 84, "высокая", "поток, доход и плотность точек дают сильный сигнал", "дорогой вход"),
+        LocationCandidate("Приморский", 81, 83, 51, 74, "средняя", "много новых жилых кварталов и семейной аудитории", "важна доступность пешком"),
+        LocationCandidate("Московский", 77, 79, 58, 71, "средняя+", "баланс трафика, спроса и платежеспособности", "конкуренты сильны в выдаче"),
     ],
-    "Фитнес-студия": [
-        ("FitRoom", "сильная подписка", "высокий CAC"),
-        ("Stretch Lab", "нишевый спрос", "ограниченная емкость"),
-        ("Форма", "районная узнаваемость", "сезонность"),
-    ],
-    "Детские кружки": [
-        ("Умный ребенок", "доверие родителей", "плотное расписание"),
-        ("Арт-класс", "сильные отзывы", "узкая программа"),
-        ("Лего-школа", "понятный формат", "высокий чек"),
-    ],
-}
-
-REGION_MAP_POINTS: dict[str, list[dict[str, object]]] = {
     "Казань": [
-        {
-            "district": "Ново-Савиновский",
-            "lat": 55.8307,
-            "lon": 49.1338,
-            "demand": 86,
-            "competition": 58,
-            "status": "старт пилота",
-            "radius": 850,
-            "color": [18, 185, 129, 210],
-        },
-        {
-            "district": "Советский",
-            "lat": 55.7942,
-            "lon": 49.2045,
-            "demand": 74,
-            "competition": 52,
-            "status": "второй район",
-            "radius": 740,
-            "color": [37, 99, 235, 205],
-        },
-        {
-            "district": "Вахитовский центр",
-            "lat": 55.7908,
-            "lon": 49.1233,
-            "demand": 82,
-            "competition": 78,
-            "status": "дорогой вход",
-            "radius": 690,
-            "color": [255, 107, 74, 220],
-        },
-        {
-            "district": "Приволжский",
-            "lat": 55.7357,
-            "lon": 49.1888,
-            "demand": 66,
-            "competition": 49,
-            "status": "зона роста",
-            "radius": 620,
-            "color": [250, 204, 21, 220],
-        },
-    ],
-    "Екатеринбург": [
-        {
-            "district": "Академический",
-            "lat": 56.7887,
-            "lon": 60.5201,
-            "demand": 81,
-            "competition": 56,
-            "status": "старт пилота",
-            "radius": 820,
-            "color": [18, 185, 129, 210],
-        },
-        {
-            "district": "ВИЗ",
-            "lat": 56.8443,
-            "lon": 60.5539,
-            "demand": 71,
-            "competition": 62,
-            "status": "зона роста",
-            "radius": 700,
-            "color": [37, 99, 235, 205],
-        },
-        {
-            "district": "Центр",
-            "lat": 56.8389,
-            "lon": 60.6057,
-            "demand": 78,
-            "competition": 77,
-            "status": "дорогой вход",
-            "radius": 670,
-            "color": [255, 107, 74, 220],
-        },
-        {
-            "district": "Уралмаш",
-            "lat": 56.8956,
-            "lon": 60.5962,
-            "demand": 65,
-            "competition": 57,
-            "status": "второй этап",
-            "radius": 620,
-            "color": [250, 204, 21, 220],
-        },
-    ],
-    "Новосибирск": [
-        {
-            "district": "Заельцовский",
-            "lat": 55.0647,
-            "lon": 82.9061,
-            "demand": 78,
-            "competition": 49,
-            "status": "старт пилота",
-            "radius": 800,
-            "color": [18, 185, 129, 210],
-        },
-        {
-            "district": "Калининский",
-            "lat": 55.0833,
-            "lon": 82.9687,
-            "demand": 70,
-            "competition": 47,
-            "status": "второй район",
-            "radius": 710,
-            "color": [37, 99, 235, 205],
-        },
-        {
-            "district": "Центр",
-            "lat": 55.0302,
-            "lon": 82.9204,
-            "demand": 73,
-            "competition": 70,
-            "status": "дорогой вход",
-            "radius": 640,
-            "color": [255, 107, 74, 220],
-        },
-        {
-            "district": "Октябрьский",
-            "lat": 55.0187,
-            "lon": 82.9582,
-            "demand": 67,
-            "competition": 51,
-            "status": "зона роста",
-            "radius": 610,
-            "color": [250, 204, 21, 220],
-        },
-    ],
-    "Нижний Новгород": [
-        {
-            "district": "Советский",
-            "lat": 56.2969,
-            "lon": 44.0305,
-            "demand": 74,
-            "competition": 51,
-            "status": "старт пилота",
-            "radius": 760,
-            "color": [18, 185, 129, 210],
-        },
-        {
-            "district": "Нижегородский",
-            "lat": 56.3267,
-            "lon": 44.0059,
-            "demand": 71,
-            "competition": 72,
-            "status": "дорогой вход",
-            "radius": 670,
-            "color": [255, 107, 74, 220],
-        },
-        {
-            "district": "Канавинский",
-            "lat": 56.3207,
-            "lon": 43.9441,
-            "demand": 64,
-            "competition": 54,
-            "status": "зона роста",
-            "radius": 620,
-            "color": [37, 99, 235, 205],
-        },
-        {
-            "district": "Автозаводский",
-            "lat": 56.2478,
-            "lon": 43.8689,
-            "demand": 68,
-            "competition": 48,
-            "status": "второй район",
-            "radius": 680,
-            "color": [250, 204, 21, 220],
-        },
+        LocationCandidate("Ново-Савиновский", 84, 86, 55, 79, "средняя", "жилой спрос, торговые точки и транспортный поток сходятся", "нужно контролировать конкурентов в ТЦ"),
+        LocationCandidate("Советский", 78, 80, 49, 70, "средняя-", "растущие кварталы и ниже плотность игроков", "слабее дневной поток"),
+        LocationCandidate("Вахитовский", 73, 82, 71, 83, "высокая", "спрос высокий, но вход дороже и рынок плотнее", "не лучший первый тест"),
     ],
 }
 
-CITY_MAP_ZOOM: dict[str, float] = {
-    "Казань": 10.45,
-    "Екатеринбург": 10.35,
-    "Новосибирск": 10.25,
-    "Нижний Новгород": 10.15,
+
+BUSINESS_PROFILES: dict[str, dict[str, int | str]] = {
+    "Кофейня": {"fit": 6, "critical": "утренний трафик, офисы, конкуренты в радиусе 700 м"},
+    "Барбершоп": {"fit": 2, "critical": "мужская аудитория 20-45, жилые кварталы, видимость с улицы"},
+    "Салон красоты": {"fit": 4, "critical": "доход района, повторные визиты, соседство с жилыми домами"},
+    "Небольшой магазин": {"fit": 1, "critical": "пешеходный поток, витринность, якорные точки рядом"},
+}
+
+COMMERCIAL_LISTINGS: dict[str, dict[str, list[tuple[str, str, str, str]]]] = {
+    "Москва": {
+        "Таганский": [
+            ("Нижняя Сыромятническая, 10", "72 м²", "420 тыс. ₽/мес.", "первый этаж, витрина"),
+            ("Большие Каменщики, 6", "54 м²", "310 тыс. ₽/мес.", "первый этаж, рядом офисы"),
+        ],
+        "Хорошево-Мневники": [
+            ("пр-т Маршала Жукова, 31", "68 м²", "240 тыс. ₽/мес.", "жилой поток"),
+            ("ул. Народного Ополчения, 44", "45 м²", "175 тыс. ₽/мес.", "низкий вход"),
+        ],
+        "Южнопортовый": [
+            ("2-й Южнопортовый проезд, 18", "60 м²", "190 тыс. ₽/мес.", "у метро"),
+            ("ул. Трофимова, 35", "82 м²", "260 тыс. ₽/мес.", "витринная линия"),
+        ],
+    },
+    "Санкт-Петербург": {
+        "Петроградский": [
+            ("Большой проспект П.С., 47", "58 м²", "280 тыс. ₽/мес.", "высокий поток"),
+            ("Каменноостровский пр., 39", "41 м²", "210 тыс. ₽/мес.", "премиальный район"),
+        ],
+        "Приморский": [
+            ("Комендантский пр., 17", "64 м²", "185 тыс. ₽/мес.", "новые ЖК"),
+            ("Богатырский пр., 49", "77 м²", "220 тыс. ₽/мес.", "семейная аудитория"),
+        ],
+        "Московский": [
+            ("Московский пр., 191", "52 м²", "230 тыс. ₽/мес.", "рядом метро"),
+            ("ул. Типанова, 21", "70 м²", "205 тыс. ₽/мес.", "районный трафик"),
+        ],
+    },
+    "Казань": {
+        "Ново-Савиновский": [
+            ("пр-т Ямашева, 93", "62 м²", "145 тыс. ₽/мес.", "рядом ТЦ и остановки"),
+            ("ул. Чистопольская, 71", "48 м²", "118 тыс. ₽/мес.", "первый этаж, витрина"),
+        ],
+        "Советский": [
+            ("ул. Сибирский тракт, 34", "75 м²", "105 тыс. ₽/мес.", "низкая аренда"),
+            ("ул. Губкина, 30", "55 м²", "82 тыс. ₽/мес.", "жилой поток"),
+        ],
+        "Вахитовский": [
+            ("ул. Баумана, 51", "45 м²", "230 тыс. ₽/мес.", "центр, высокий поток"),
+            ("ул. Пушкина, 12", "66 м²", "260 тыс. ₽/мес.", "дорогой вход"),
+        ],
+    },
 }
 
 
-def clamp(value: float, low: int = 0, high: int = 100) -> int:
-    return max(low, min(high, round(value)))
+def image_data_uri(path: Path) -> str:
+    if not path.exists():
+        return ""
+    encoded = base64.b64encode(path.read_bytes()).decode("ascii")
+    return f"data:image/jpeg;base64,{encoded}"
 
 
-def recommendation(score: int) -> tuple[str, str]:
-    if score >= 78:
-        return "Запускать пилот", "Спрос и конкурентная плотность дают пространство для управляемого теста."
-    if score >= 62:
-        return "Тестировать осторожно", "Сценарий выглядит рабочим, но лучше ограничить бюджет и район запуска."
-    return "Уточнить сценарий", "Сигналы подсказывают сменить район, сегмент или формат предложения."
+def adjusted_score(candidate: LocationCandidate, business_type: str, budget: int) -> int:
+    profile = BUSINESS_PROFILES[business_type]
+    fit = int(profile["fit"])
+    budget_bonus = 0
+    if budget >= 2_500_000:
+        budget_bonus = 4
+    elif budget < 900_000 and candidate.rent.startswith("высок"):
+        budget_bonus = -9
+    elif budget < 1_500_000 and candidate.rent.startswith("высок"):
+        budget_bonus = -5
+    competition_penalty = max(0, candidate.competition - 65) // 4
+    return max(0, min(99, candidate.base_score + fit + budget_bonus - competition_penalty))
+
+
+def ranked_locations(city: str, business_type: str, budget: int) -> list[tuple[LocationCandidate, int]]:
+    ranked = [(candidate, adjusted_score(candidate, business_type, budget)) for candidate in LOCATION_DATA[city]]
+    return sorted(ranked, key=lambda item: item[1], reverse=True)
+
+
+def html(markup: str) -> None:
+    st.markdown(markup, unsafe_allow_html=True)
+
 
 
 def render_css() -> None:
-    st.markdown(
+    html(
         """
         <style>
+        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap');
+
         :root {
-            --rd-bg: #f5f7fb;
-            --rd-ink: #101828;
-            --rd-muted: #667085;
-            --rd-soft: #eef2f7;
-            --rd-line: #d9e0ea;
-            --rd-card: #ffffff;
-            --rd-blue: #2563eb;
-            --rd-blue-soft: #dbeafe;
-            --rd-green: #12b981;
-            --rd-green-soft: #d1fae5;
-            --rd-amber: #facc15;
-            --rd-amber-soft: #fef3c7;
-            --rd-coral: #ff6b4a;
-            --rd-coral-soft: #ffe4dc;
-            --rd-radius: 8px;
-            --rd-shadow: 0 18px 44px rgba(16, 24, 40, 0.10);
-            --rd-font: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, Helvetica, sans-serif;
-            --rd-section-title: clamp(32px, 3vw, 44px);
-            --rd-section-title-weight: 820;
-            --rd-subtitle: 22px;
-            --rd-card-title: 18px;
+            --void: #0c0f14;
+            --panel: #141a22;
+            --panel-2: #1b232d;
+            --raise: #222c38;
+            --line: #28323e;
+            --line-soft: #1f2832;
+            --paper: #eef1f4;
+            --paper-dim: #c3ccd6;
+            --muted: #8593a3;
+            --muted-2: #5e6b79;
+            --amber: #f2a93b;
+            --amber-bright: #ffc15e;
+            --amber-deep: #b5781d;
+            --teal: #54d3c4;
+            --teal-deep: #2a8d82;
+            --coral: #ff6f5e;
+            --radius: 4px;
+            --radius-lg: 10px;
+            --max: 1200px;
+            --mono: 'Space Mono', ui-monospace, monospace;
+            --display: 'Space Grotesk', system-ui, sans-serif;
+            --body: 'Manrope', system-ui, sans-serif;
         }
 
-        html {
-            scroll-behavior: smooth;
+        html { scroll-behavior: smooth; }
+
+        html, body { background-color: var(--void) !important; }
+        body, .stApp { color: var(--paper); }
+        [data-testid="stAppViewContainer"],
+        [data-testid="stMain"],
+        [data-testid="stMainBlockContainer"],
+        [data-testid="stBottomBlockContainer"],
+        section.main, .main, .appview-container, .block-container {
+            background: transparent !important;
         }
 
         .stApp {
             background:
-                linear-gradient(180deg, rgba(255, 255, 255, 0.90), rgba(245, 247, 251, 0.94) 18rem),
-                var(--rd-bg);
-            color: var(--rd-ink);
-            font-family: var(--rd-font);
+                radial-gradient(1100px 600px at 82% -8%, rgba(242,169,59,.10), transparent 60%),
+                radial-gradient(900px 600px at -6% 12%, rgba(84,211,196,.07), transparent 55%),
+                var(--void);
+            color: var(--paper);
+            font-family: var(--body);
+            -webkit-font-smoothing: antialiased;
         }
 
-        .stApp * {
-            font-family: var(--rd-font);
+        .stApp::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 0;
+            background-image:
+                linear-gradient(rgba(255,255,255,.018) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,.018) 1px, transparent 1px);
+            background-size: 64px 64px;
+            mask-image: radial-gradient(120% 90% at 50% 0%, #000 35%, transparent 90%);
         }
 
-        [data-testid="stHeader"],
-        [data-testid="stToolbar"],
-        [data-testid="stDecoration"],
-        #MainMenu,
-        footer {
-            visibility: hidden;
-            height: 0;
+        .stApp * { font-family: inherit; }
+        .block-container > * { position: relative; z-index: 1; }
+
+        [data-testid="stHeader"], [data-testid="stToolbar"],
+        [data-testid="stDecoration"], #MainMenu, footer {
+            visibility: hidden; height: 0;
         }
 
-        .block-container {
-            max-width: 1180px;
-            padding: 0 20px 52px;
-        }
+        .block-container { max-width: var(--max); padding: 0 22px 72px; }
 
-        .rd-nowrap {
-            white-space: nowrap;
-        }
-
-        .stMarkdown {
-            margin: 0;
-        }
-
-        .stMarkdown a.anchor-link {
-            display: none !important;
-        }
-
-        [data-testid="stHeaderActionElements"] {
-            display: none !important;
-        }
-
+        /* ---------- nav ---------- */
         .rd-nav {
-            position: sticky;
-            top: 0;
-            z-index: 50;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 14px;
-            min-height: 58px;
-            margin: 0 -20px 16px;
-            padding: 8px 20px;
-            border-bottom: 1px solid rgba(16, 24, 40, 0.10);
-            background: rgba(245, 247, 251, 0.94);
+            position: sticky; top: 0; z-index: 30;
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 18px; min-height: 60px; margin: 0 -22px 8px; padding: 12px 22px;
+            background: rgba(12,15,20,.78);
+            border-bottom: 1px solid var(--line-soft);
             backdrop-filter: blur(16px);
         }
-
         .rd-brand {
-            display: inline-flex;
-            align-items: center;
-            gap: 9px;
-            color: var(--rd-ink) !important;
-            text-decoration: none !important;
-            font-size: 19px;
-            font-weight: 900;
-            letter-spacing: 0;
+            display: inline-flex; align-items: center; gap: 11px;
+            color: var(--paper) !important; text-decoration: none !important;
+            font-family: var(--display); font-size: 17px; font-weight: 600; letter-spacing: -.01em;
         }
-
         .rd-mark {
-            width: 28px;
-            height: 28px;
-            display: inline-grid;
-            place-items: center;
-            border-radius: var(--rd-radius);
-            background: conic-gradient(from 210deg, var(--rd-blue), var(--rd-green), var(--rd-amber), var(--rd-coral), var(--rd-blue));
-            box-shadow: 0 10px 28px rgba(37, 99, 235, 0.22);
+            width: 26px; height: 26px; position: relative; flex: none;
+            border: 1.5px solid var(--amber); transform: rotate(45deg);
+            border-radius: 3px;
+            box-shadow: inset 0 0 0 4px rgba(242,169,59,.16);
         }
-
         .rd-mark::after {
-            content: "";
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            background: #fff;
+            content: ""; position: absolute; inset: 7px;
+            background: var(--amber); border-radius: 2px;
         }
-
         .rd-nav-links {
-            display: flex;
-            align-items: center;
-            gap: 14px;
-            color: var(--rd-muted);
-            font-size: 13px;
-            font-weight: 750;
+            display: flex; align-items: center; gap: 20px;
+            font-family: var(--mono); font-size: 11px; letter-spacing: .08em;
+            text-transform: uppercase; color: var(--muted);
         }
+        .rd-nav-links a { color: inherit !important; text-decoration: none !important; transition: color .15s; }
+        .rd-nav-links a:hover { color: var(--amber) !important; }
 
-        .rd-nav-links a {
-            color: inherit !important;
-            text-decoration: none !important;
+        .rd-btn, .rd-btn:visited {
+            display: inline-flex; align-items: center; gap: 8px;
+            min-height: 42px; padding: 0 18px;
+            border-radius: var(--radius); border: 1px solid var(--amber);
+            background: var(--amber); color: #11161d !important;
+            font-family: var(--display); font-size: 13px; font-weight: 600; letter-spacing: .01em;
+            text-decoration: none !important; white-space: nowrap;
+            transition: transform .15s, box-shadow .15s, background .15s;
+            box-shadow: 0 0 0 1px rgba(242,169,59,.2), 0 14px 34px rgba(242,169,59,.16);
         }
-
-        .rd-nav-links a:hover {
-            color: var(--rd-ink) !important;
+        .rd-btn:hover { background: var(--amber-bright); transform: translateY(-1px); }
+        .rd-btn.ghost {
+            background: transparent; color: var(--paper) !important;
+            border-color: var(--line); box-shadow: none;
         }
+        .rd-btn.ghost:hover { border-color: var(--amber); color: var(--amber) !important; background: transparent; }
 
-        .rd-btn,
-        .rd-btn:visited {
-            min-height: 38px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            padding: 0 14px;
-            border: 1px solid transparent;
-            border-radius: var(--rd-radius);
-            background: var(--rd-ink);
-            color: #fff !important;
-            font-size: 13px;
-            font-weight: 850;
-            text-decoration: none !important;
-            box-shadow: 0 10px 24px rgba(16, 24, 40, 0.16);
-            transition: transform .16s ease, box-shadow .16s ease;
-            white-space: nowrap;
-        }
-
-        .rd-btn:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 14px 30px rgba(16, 24, 40, 0.20);
-        }
-
-        .rd-btn.secondary {
-            background: #fff;
-            color: var(--rd-ink) !important;
-            border-color: var(--rd-line);
-            box-shadow: none;
-        }
-
-        .rd-section {
-            padding: 38px 0;
-            border-top: 1px solid rgba(16, 24, 40, 0.08);
-        }
-
-        .rd-section:first-of-type {
-            border-top: 0;
-        }
-
-        .rd-hero {
-            display: grid;
-            grid-template-columns: minmax(0, .96fr) minmax(420px, 1.04fr);
-            gap: 28px;
-            align-items: start;
-            min-height: auto;
-            padding: 42px 0 46px;
-            overflow: visible;
-        }
-
-        .rd-hero > div:first-child {
-            min-width: 0;
-            max-width: 820px;
-            padding: 0;
-        }
-
-        .rd-hero > div:nth-child(2) {
-            min-width: 0;
-        }
-
-        .rd-hero .rd-dashboard {
-            grid-template-columns: 172px minmax(0, 1fr);
-            min-height: 468px;
-        }
-
-        .rd-hero .rd-sidebar {
-            padding: 16px 12px;
-        }
-
-        .rd-hero .rd-side-item {
-            min-height: 32px;
-            padding: 0 8px;
-            font-size: 12px;
-        }
-
-        .rd-hero .rd-dashboard-title {
-            align-items: flex-start;
-            flex-direction: column;
-            gap: 12px;
-        }
-
-        .rd-hero .rd-health {
-            width: 100%;
-            min-width: 0;
-        }
-
-        .rd-hero .rd-kpi-grid {
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-        }
-
-        .rd-hero .rd-overview-panel .rd-overview-line:nth-child(4) {
-            display: none;
-        }
-
+        /* ---------- shared ---------- */
         .rd-eyebrow {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            min-height: 30px;
-            margin-bottom: 18px;
-            padding: 0 10px;
-            border: 1px solid var(--rd-line);
-            border-radius: var(--rd-radius);
-            background: #fff;
-            color: var(--rd-muted);
-            font-size: 12px;
-            font-weight: 850;
+            display: inline-flex; align-items: center; gap: 8px;
+            font-family: var(--mono); font-size: 11px; font-weight: 700;
+            letter-spacing: .16em; text-transform: uppercase; color: var(--amber);
+            margin: 0 0 18px;
         }
-
         .rd-eyebrow::before {
-            content: "";
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: var(--rd-green);
+            content: ""; width: 18px; height: 1px; background: var(--amber); opacity: .7;
         }
 
-        .rd-section .rd-eyebrow,
-        .rd-faq-grid .rd-eyebrow {
-            min-height: 38px;
-            margin-bottom: 18px;
-            padding: 0 14px;
-            font-size: 15px;
-            letter-spacing: 0.02em;
+        .rd-section { padding: 64px 0; border-top: 1px solid var(--line-soft); }
+        .rd-section-head {
+            display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, .85fr);
+            gap: 28px; align-items: end; margin-bottom: 36px;
+        }
+        .rd-section-title {
+            margin: 0; font-family: var(--display); font-weight: 600;
+            font-size: clamp(28px, 3.4vw, 44px); line-height: 1.04; letter-spacing: -.02em;
+            color: var(--paper);
+        }
+        .rd-section-title em { color: var(--amber); font-style: normal; }
+        .rd-section-head p {
+            margin: 0; align-self: end; color: var(--muted);
+            font-size: 16px; line-height: 1.6;
         }
 
-        .rd-section .rd-eyebrow::before,
-        .rd-faq-grid .rd-eyebrow::before {
-            width: 10px;
-            height: 10px;
+        /* ---------- hero ---------- */
+        .rd-hero {
+            display: grid; grid-template-columns: minmax(0, 1.02fr) minmax(440px, 1.05fr);
+            gap: 44px; align-items: center; padding: 52px 0 30px;
+        }
+        .rd-hero-copy { min-width: 0; }
+        .rd-h1 {
+            margin: 0 0 22px; font-family: var(--display); font-weight: 600;
+            font-size: clamp(40px, 5.4vw, 70px); line-height: .98; letter-spacing: -.03em;
+            color: var(--paper);
+        }
+        .rd-h1 em { color: var(--amber); font-style: normal; }
+        .rd-lead { max-width: 540px; margin: 0 0 26px; color: var(--paper-dim); font-size: 19px; line-height: 1.55; }
+        .rd-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 30px; }
+
+        .rd-readout {
+            display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px;
+            padding: 14px 16px; border: 1px solid var(--line);
+            border-radius: var(--radius); background: rgba(20,26,34,.6);
+            font-family: var(--mono); font-size: 12px; color: var(--muted);
+        }
+        .rd-readout .k { color: var(--teal); }
+        .rd-readout .v { color: var(--paper); }
+        .rd-readout .sep { color: var(--muted-2); }
+        .rd-readout .verdict { color: var(--amber); font-weight: 700; }
+        .rd-dot {
+            width: 7px; height: 7px; border-radius: 50%; background: var(--teal);
+            box-shadow: 0 0 0 0 rgba(84,211,196,.5); animation: rdpulse 2.4s infinite;
+        }
+        @keyframes rdpulse {
+            0% { box-shadow: 0 0 0 0 rgba(84,211,196,.45); }
+            70% { box-shadow: 0 0 0 7px rgba(84,211,196,0); }
+            100% { box-shadow: 0 0 0 0 rgba(84,211,196,0); }
         }
 
-        .rd-title-xl {
-            max-width: 760px;
-            margin: 0 0 18px;
-            color: var(--rd-ink);
-            font-size: clamp(46px, 5.2vw, 72px);
-            line-height: 1;
-            font-weight: 860;
-            font-variation-settings: "wght" 860;
-            letter-spacing: 0;
-        }
-
-        .rd-lead {
-            max-width: 560px;
-            margin: 0 0 18px;
-            color: #344054;
-            font-size: 21px;
-            line-height: 1.42;
-        }
-
-        .rd-note {
-            max-width: 620px;
-            margin: 0 0 26px;
-            color: var(--rd-muted);
-            font-size: 16px;
-            line-height: 1.58;
-        }
-
-        .rd-actions {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            margin: 0 0 24px;
-        }
-
-        .rd-proof-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 10px;
-        }
-
-        .rd-proof {
-            min-height: 104px;
-            padding: 13px;
-            border: 1px solid var(--rd-line);
-            border-radius: var(--rd-radius);
-            background: rgba(255, 255, 255, 0.74);
-        }
-
-        .rd-proof strong {
-            display: block;
-            margin-bottom: 7px;
-            color: var(--rd-ink);
-            font-size: 18px;
-            line-height: 1.1;
-            font-weight: 900;
-        }
-
-        .rd-proof span {
-            color: var(--rd-muted);
-            font-size: 13px;
-            line-height: 1.35;
-        }
-
-        .rd-overview-strip {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            margin: 0 0 20px;
-        }
-
-        .rd-overview-strip span {
-            display: inline-flex;
-            align-items: center;
-            min-height: 30px;
-            padding: 0 10px;
-            border: 1px solid var(--rd-line);
-            border-radius: var(--rd-radius);
-            background: rgba(255, 255, 255, 0.78);
-            color: #344054;
-            font-size: 12px;
-            font-weight: 820;
-        }
-
-        .rd-overview-panel {
-            display: grid;
-            gap: 9px;
-            margin-top: 18px;
-        }
-
-        .rd-overview-line {
-            display: grid;
-            grid-template-columns: 112px minmax(0, 1fr);
-            gap: 12px;
-            min-height: 42px;
-            align-items: center;
-            padding: 9px 11px;
-            border: 1px solid #d8e0eb;
-            border-radius: var(--rd-radius);
-            background: #fff;
-            color: #344054;
-            font-size: 13px;
-            line-height: 1.34;
-        }
-
-        .rd-overview-line strong {
-            color: var(--rd-ink);
-            font-size: 12px;
-            font-weight: 900;
-        }
-
-        .rd-metric-grid,
-        .rd-audience-grid,
-        .rd-competitor-grid,
-        .rd-economy-grid,
-        .rd-evidence-grid,
-        .rd-investor-grid {
-            display: grid;
-            gap: 12px;
-        }
-
-        .rd-metric-grid {
-            grid-template-columns: repeat(4, minmax(0, 1fr));
-        }
-
-        .rd-audience-grid,
-        .rd-investor-grid {
-            grid-template-columns: minmax(280px, .9fr) minmax(0, 1.1fr);
-            align-items: start;
-        }
-
-        .rd-stacked-cards {
-            display: grid;
-            grid-template-columns: repeat(3, minmax(0, 1fr));
-            gap: 12px;
-        }
-
-        .rd-investor-left {
-            display: grid;
-            gap: 12px;
-        }
-
-        .rd-competitor-grid {
-            grid-template-columns: repeat(4, minmax(0, 1fr));
-        }
-
-        .rd-economy-grid,
-        .rd-evidence-grid {
-            grid-template-columns: repeat(3, minmax(0, 1fr));
-        }
-
-        .rd-metric,
-        .rd-audience-card,
-        .rd-competitor-card,
-        .rd-economy-card,
-        .rd-evidence-card,
-        .rd-investor-card {
-            min-height: 142px;
-            padding: 16px;
-            border: 1px solid var(--rd-line);
-            border-radius: var(--rd-radius);
-            background: #fff;
-            box-shadow: 0 12px 28px rgba(16, 24, 40, 0.05);
-        }
-
-        .rd-metric > span,
-        .rd-audience-card > span,
-        .rd-competitor-card > span,
-        .rd-economy-card > span,
-        .rd-evidence-card > span,
-        .rd-investor-card > span {
-            display: block;
-            margin-bottom: 10px;
-            color: var(--rd-muted);
-            font-size: 12px;
-            font-weight: 850;
-        }
-
-        .rd-metric strong {
-            display: block;
-            margin-bottom: 8px;
-            color: var(--rd-ink);
-            font-size: clamp(24px, 2.5vw, 34px);
-            line-height: 1;
-            font-weight: 930;
-        }
-
-        .rd-audience-card h3,
-        .rd-competitor-card h3,
-        .rd-economy-card h3,
-        .rd-evidence-card h3,
-        .rd-investor-card h3 {
-            margin: 0 0 9px;
-            min-height: 0;
-            padding: 0;
-            color: var(--rd-ink);
-            font-size: var(--rd-card-title);
-            line-height: 1.13;
-            font-weight: 900;
-            overflow-wrap: normal;
-            word-break: normal;
-            text-wrap: auto;
-        }
-
-        .rd-metric p,
-        .rd-audience-card p,
-        .rd-competitor-card p,
-        .rd-economy-card p,
-        .rd-evidence-card p,
-        .rd-investor-card p {
-            margin: 0;
-            color: #475467;
-            font-size: 14px;
-            line-height: 1.48;
-        }
-
-        .rd-audience-card.featured,
-        .rd-investor-card.featured {
-            background: #101828;
-            color: #fff;
-        }
-
-        .rd-audience-card.featured > span,
-        .rd-investor-card.featured > span {
-            color: #d0d5dd;
-        }
-
-        .rd-audience-card.featured h3,
-        .rd-investor-card.featured h3 {
-            color: #fff;
-        }
-
-        .rd-audience-card.featured p,
-        .rd-investor-card.featured p {
-            color: #d0d5dd;
-        }
-
-        .rd-audience-grid .rd-stacked-cards,
-        .rd-investor-grid .rd-stacked-cards {
-            grid-template-columns: 1fr;
-        }
-
-        .rd-audience-grid .rd-audience-card,
-        .rd-investor-grid .rd-investor-card {
-            min-height: 118px;
-        }
-
-        .rd-table {
+        /* ---------- verdict instrument (signature) ---------- */
+        .rd-instrument {
+            position: relative; border: 1px solid var(--line);
+            border-radius: var(--radius-lg); background:
+                linear-gradient(180deg, rgba(27,35,45,.9), rgba(18,24,31,.95));
+            box-shadow: 0 40px 90px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.04);
             overflow: hidden;
-            border: 1px solid var(--rd-line);
-            border-radius: var(--rd-radius);
-            background: #fff;
         }
-
-        .rd-table-row {
-            display: grid;
-            grid-template-columns: 1fr 1fr 1.15fr 1.15fr;
-            border-bottom: 1px solid var(--rd-line);
-        }
-
-        .rd-table-row:last-child {
-            border-bottom: 0;
-        }
-
-        .rd-table-row.header {
-            background: #f8fafc;
-            color: var(--rd-ink);
-            font-size: 12px;
-            font-weight: 900;
-        }
-
-        .rd-table-cell {
-            min-height: 54px;
-            padding: 13px 14px;
-            border-right: 1px solid var(--rd-line);
-            color: #475467;
-            font-size: 13px;
-            line-height: 1.38;
-        }
-
-        .rd-table-cell:last-child {
-            border-right: 0;
-        }
-
-        .rd-table-cell strong {
-            display: block;
-            margin-bottom: 4px;
-            color: var(--rd-ink);
-            font-size: 13px;
-            font-weight: 900;
-        }
-
-        .rd-unit-model {
-            display: grid;
-            grid-template-columns: repeat(4, minmax(0, 1fr));
-            gap: 10px;
-            margin-top: 12px;
-        }
-
-        .rd-unit-model div {
-            min-height: 86px;
-            padding: 13px;
-            border: 1px solid #d8e0eb;
-            border-radius: var(--rd-radius);
-            background: #f8fafc;
-        }
-
-        .rd-unit-model span {
-            display: block;
-            margin-bottom: 7px;
-            color: var(--rd-muted);
-            font-size: 11px;
-            font-weight: 850;
-        }
-
-        .rd-unit-model strong {
-            display: block;
-            color: var(--rd-ink);
-            font-size: 18px;
-            line-height: 1.12;
-            font-weight: 930;
-        }
-
-        .rd-window-bar {
-            min-height: 48px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 14px;
-            padding: 0 14px;
-            border-bottom: 1px solid #dfe6f0;
-            background: rgba(255, 255, 255, 0.90);
-        }
-
-        .rd-dots {
-            display: flex;
-            gap: 7px;
-        }
-
-        .rd-dots span {
-            width: 11px;
-            height: 11px;
-            border-radius: 50%;
-            background: #ff5f57;
-        }
-
-        .rd-dots span:nth-child(2) {
-            background: #ffbd2e;
-        }
-
-        .rd-dots span:nth-child(3) {
-            background: #28c840;
-        }
-
-        .rd-window-title {
-            color: #475467;
-            font-size: 12px;
-            font-weight: 850;
-        }
-
-        .rd-chip-row {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-        }
-
-        .rd-chip {
-            display: inline-flex;
-            align-items: center;
-            min-height: 28px;
-            padding: 0 9px;
-            border: 1px solid #d8e0eb;
-            border-radius: var(--rd-radius);
-            background: #fff;
-            color: #344054;
-            font-size: 12px;
-            font-weight: 760;
-        }
-
-        .rd-chip.dark {
-            background: var(--rd-ink);
-            color: #fff;
-            border-color: var(--rd-ink);
-        }
-
-        .rd-dashboard {
-            display: grid;
-            grid-template-columns: 214px 1fr;
-            min-height: 560px;
-        }
-
-        .rd-sidebar {
-            padding: 18px 14px;
-            background: #111827;
-            color: #d0d5dd;
-        }
-
-        .rd-side-brand {
-            display: flex;
-            align-items: center;
-            gap: 9px;
-            margin-bottom: 22px;
-            color: #fff;
-            font-size: 16px;
-            font-weight: 900;
-        }
-
-        .rd-side-dot {
-            width: 22px;
-            height: 22px;
-            border-radius: 6px;
-            background: linear-gradient(135deg, var(--rd-blue), var(--rd-green));
-        }
-
-        .rd-side-label {
-            margin: 18px 0 8px;
-            color: #98a2b3;
-            font-size: 11px;
-            font-weight: 850;
-        }
-
-        .rd-side-item {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            min-height: 36px;
-            margin-bottom: 5px;
-            padding: 0 10px;
-            border-radius: var(--rd-radius);
-            color: #d0d5dd;
-            font-size: 13px;
-            font-weight: 720;
-        }
-
-        .rd-side-item.active {
-            background: rgba(255, 255, 255, 0.10);
-            color: #fff;
-        }
-
-        .rd-main {
-            min-width: 0;
-            padding: 18px;
-        }
-
-        .rd-topline {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 14px;
-            margin-bottom: 16px;
-        }
-
-        .rd-breadcrumbs {
-            color: #667085;
-            font-size: 13px;
-            font-weight: 720;
-        }
-
-        .rd-mini-actions {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-        }
-
-        .rd-mini-button {
-            min-height: 34px;
-            display: inline-flex;
-            align-items: center;
-            padding: 0 10px;
-            border: 1px solid #d8e0eb;
-            border-radius: var(--rd-radius);
-            background: #fff;
-            color: #344054;
-            font-size: 12px;
-            font-weight: 800;
-        }
-
-        .rd-mini-button.primary {
-            background: var(--rd-blue);
-            color: #fff;
-            border-color: var(--rd-blue);
-        }
-
-        .rd-dashboard-title {
-            display: flex;
-            justify-content: space-between;
-            gap: 16px;
-            align-items: flex-end;
-            margin-bottom: 16px;
-        }
-
-        .rd-dashboard-title h2 {
-            margin: 0 0 6px;
-            color: var(--rd-ink);
-            font-size: var(--rd-subtitle);
-            line-height: 1.1;
-            font-weight: 930;
-            letter-spacing: 0;
-        }
-
-        .rd-dashboard-title p {
-            max-width: 670px;
-            margin: 0;
-            color: var(--rd-muted);
-            font-size: 13px;
-            line-height: 1.45;
-        }
-
-        .rd-health {
-            min-width: 190px;
-            padding: 10px;
-            border: 1px solid #d8e0eb;
-            border-radius: var(--rd-radius);
-            background: #fff;
-        }
-
-        .rd-health-label {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 8px;
-            color: #667085;
-            font-size: 11px;
-            font-weight: 850;
-        }
-
-        .rd-health-bar {
-            height: 8px;
-            overflow: hidden;
-            border-radius: 999px;
-            background: #edf1f6;
-        }
-
-        .rd-health-bar span {
-            display: block;
-            height: 100%;
-            border-radius: inherit;
-            background: linear-gradient(90deg, var(--rd-green), var(--rd-amber));
-        }
-
-        .rd-kpi-grid {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 10px;
-            margin-bottom: 12px;
-        }
-
-        .rd-kpi,
-        .rd-panel,
-        .rd-price,
-        .rd-card,
-        .rd-scenario {
-            border: 1px solid var(--rd-line);
-            border-radius: var(--rd-radius);
-            background: #fff;
-            box-shadow: 0 10px 26px rgba(16, 24, 40, 0.05);
-        }
-
-        .rd-kpi {
-            padding: 14px;
-        }
-
-        .rd-kpi-label {
-            margin-bottom: 8px;
-            color: #667085;
-            font-size: 11px;
-            font-weight: 850;
-        }
-
-        .rd-kpi-value {
-            color: var(--rd-ink);
-            font-size: 29px;
-            line-height: 1;
-            font-weight: 930;
-        }
-
-        .rd-kpi-value.small {
-            font-size: 21px;
-            line-height: 1.08;
-        }
-
-        .rd-kpi-note {
-            margin-top: 7px;
-            color: #0f8f59;
-            font-size: 12px;
-            font-weight: 760;
-        }
-
-        .rd-grid-2 {
-            display: grid;
-            grid-template-columns: minmax(0, 1.1fr) minmax(280px, 0.9fr);
-            gap: 12px;
-            margin-bottom: 12px;
-        }
-
-        .rd-grid-3 {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 12px;
-        }
-
-        .rd-panel {
-            min-width: 0;
-            padding: 14px;
-        }
-
-        .rd-panel-title {
-            display: flex;
-            justify-content: space-between;
-            gap: 10px;
-            margin-bottom: 12px;
-            color: var(--rd-ink);
-            font-size: 13px;
-            font-weight: 900;
-        }
-
-        .rd-panel-title span {
-            color: var(--rd-muted);
-            font-size: 12px;
-            font-weight: 720;
-        }
-
-        .rd-line-chart {
-            position: relative;
-            height: 210px;
-            overflow: hidden;
-            border: 1px solid #e3e9f2;
-            border-radius: var(--rd-radius);
-            background:
-                linear-gradient(to bottom, transparent 24%, rgba(16,24,40,0.06) 25%, transparent 26%, transparent 49%, rgba(16,24,40,0.06) 50%, transparent 51%, transparent 74%, rgba(16,24,40,0.06) 75%, transparent 76%),
-                linear-gradient(to right, transparent 19%, rgba(16,24,40,0.04) 20%, transparent 21%, transparent 39%, rgba(16,24,40,0.04) 40%, transparent 41%, transparent 59%, rgba(16,24,40,0.04) 60%, transparent 61%, transparent 79%, rgba(16,24,40,0.04) 80%, transparent 81%),
-                #fbfcff;
-        }
-
-        .rd-line-chart::before,
-        .rd-line-chart::after {
-            content: "";
-            position: absolute;
-            left: 20px;
-            right: 20px;
-            height: 86px;
-            border-top: 4px solid var(--rd-blue);
-            border-radius: 55% 45% 0 0;
-        }
-
-        .rd-line-chart::before {
-            bottom: 54px;
-            transform: rotate(-3deg);
-        }
-
-        .rd-line-chart::after {
-            bottom: 30px;
-            border-top-color: var(--rd-coral);
-            transform: rotate(1.5deg);
-        }
-
-        .rd-axis {
-            position: absolute;
-            left: 16px;
-            right: 16px;
-            bottom: 9px;
-            display: flex;
-            justify-content: space-between;
-            color: #98a2b3;
-            font-size: 10px;
-            font-weight: 760;
-        }
-
-        .rd-summary {
-            padding: 13px;
-            border: 1px solid #f3d46c;
-            border-radius: var(--rd-radius);
-            background: #fff8d6;
-        }
-
-        .rd-summary strong {
-            display: block;
-            margin-bottom: 7px;
-            color: var(--rd-ink);
-            font-size: 13px;
-            font-weight: 900;
-        }
-
-        .rd-summary p {
-            margin: 0;
-            color: #475467;
-            font-size: 13px;
-            line-height: 1.45;
-        }
-
-        .rd-tag-row {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            margin-top: 12px;
-        }
-
-        .rd-tag-row span {
-            display: inline-flex;
-            align-items: center;
-            min-height: 28px;
-            padding: 0 9px;
-            border: 1px solid #d8e0eb;
-            border-radius: var(--rd-radius);
-            background: #fff;
-            color: #344054;
-            font-size: 11px;
-            font-weight: 790;
-        }
-
-        .rd-source-list {
-            display: grid;
-            gap: 8px;
-        }
-
-        .rd-source-item {
-            display: grid;
-            grid-template-columns: minmax(120px, .8fr) minmax(0, 1.2fr);
-            gap: 12px;
-            min-height: 40px;
-            align-items: center;
-            padding: 8px 10px;
-            border: 1px solid #e3e9f2;
-            border-radius: var(--rd-radius);
-            background: #fff;
-            color: #344054;
-            font-size: 12px;
-            font-weight: 780;
-        }
-
-        .rd-source-item span {
-            min-width: 0;
-            overflow-wrap: anywhere;
-        }
-
-        .rd-source-item span:last-child {
-            color: #0f8f59;
-            text-align: right;
-        }
-
-        .rd-map-helper {
-            margin: 0 0 10px;
-            color: var(--rd-muted);
-            font-size: 13px;
-            line-height: 1.45;
-        }
-
-        .rd-map-head {
-            margin-bottom: 12px;
-        }
-
-        .rd-demo-results-gap {
-            height: 16px;
-        }
-
-        .st-key-rd_demo_input_panel,
-        .st-key-rd_map_panel,
-        .st-key-rd_summary_panel {
-            margin-top: 0 !important;
-        }
-
-        .st-key-rd_demo_input_panel [data-testid="stVerticalBlockBorderWrapper"],
-        .st-key-rd_map_panel [data-testid="stVerticalBlockBorderWrapper"],
-        .st-key-rd_summary_panel [data-testid="stVerticalBlockBorderWrapper"] {
-            height: auto !important;
-            min-height: 0 !important;
-            overflow: visible !important;
-            padding: 18px 18px 30px !important;
-            border: 1px solid var(--rd-line) !important;
-            border-radius: var(--rd-radius) !important;
-            background: #fff !important;
-            box-shadow: var(--rd-shadow) !important;
-        }
-
-        .st-key-rd_demo_input_panel [data-testid="stVerticalBlock"],
-        .st-key-rd_map_panel [data-testid="stVerticalBlock"],
-        .st-key-rd_summary_panel [data-testid="stVerticalBlock"] {
-            gap: 0.7rem;
-        }
-
-        .st-key-rd_demo_input_panel {
-            margin-bottom: 0 !important;
-        }
-
-        .st-key-rd_demo_input_panel .rd-decision-grid {
-            margin-top: 4px;
-        }
-
-        .st-key-rd_map_panel .rd-map-legend,
-        .st-key-rd_summary_panel .rd-source-list {
-            margin-bottom: 0;
-        }
-
-        .rd-map-legend {
-            display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 8px;
-            margin-top: 10px;
-            margin-bottom: 2px;
-        }
-
-        .rd-map-legend-row {
-            display: grid;
-            grid-template-columns: 12px minmax(0, 1fr) auto;
-            gap: 9px;
-            align-items: center;
-            min-height: 36px;
-            padding: 7px 9px;
-            border: 1px solid #e3e9f2;
-            border-radius: var(--rd-radius);
-            background: #fff;
-            color: #344054;
-            font-size: 12px;
-            font-weight: 780;
-        }
-
-        .rd-map-legend-dot {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            box-shadow: 0 0 0 2px rgba(255, 255, 255, .9);
-        }
-
-        .rd-map-legend-row strong {
-            min-width: 0;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-            color: var(--rd-ink);
-            font-size: 12px;
-        }
-
-        .rd-map-legend-row span:last-child {
-            color: #0f8f59;
-            white-space: nowrap;
-        }
+        .rd-inst-bar {
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--line);
+            font-family: var(--mono); font-size: 11px; letter-spacing: .06em;
+            text-transform: uppercase; color: var(--muted);
+            background: rgba(12,15,20,.5);
+        }
+        .rd-inst-live { display: inline-flex; align-items: center; gap: 8px; color: var(--teal); }
+        .rd-inst-body { padding: 16px; display: grid; gap: 14px; }
 
         .rd-map {
-            position: relative;
-            min-height: 300px;
-            overflow: hidden;
-            border: 1px solid #e3e9f2;
-            border-radius: var(--rd-radius);
+            position: relative; height: 268px; border-radius: var(--radius);
+            border: 1px solid var(--line); overflow: hidden;
             background:
-                radial-gradient(circle at 22% 30%, rgba(18, 185, 129, .95) 0 22px, transparent 23px),
-                radial-gradient(circle at 52% 54%, rgba(255, 107, 74, .92) 0 25px, transparent 26px),
-                radial-gradient(circle at 73% 34%, rgba(250, 204, 21, .95) 0 19px, transparent 20px),
-                radial-gradient(circle at 63% 75%, rgba(37, 99, 235, .72) 0 17px, transparent 18px),
-                linear-gradient(135deg, #ecf4ff, #fbfcff);
+                radial-gradient(120px 120px at 30% 42%, rgba(242,169,59,.34), transparent 70%),
+                radial-gradient(150px 150px at 66% 38%, rgba(84,211,196,.20), transparent 72%),
+                radial-gradient(110px 110px at 54% 78%, rgba(255,111,94,.16), transparent 72%),
+                linear-gradient(rgba(255,255,255,.045) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,.045) 1px, transparent 1px),
+                #0a0d12;
+            background-size: auto, auto, auto, 30px 30px, 30px 30px, auto;
+        }
+        .rd-contour {
+            position: absolute; border: 1px solid rgba(242,169,59,.22);
+            border-radius: 50%;
+        }
+        .rd-contour.c1 { inset: 78px 58% 70px 22%; }
+        .rd-contour.c2 { inset: 62px 50% 52px 12%; border-color: rgba(242,169,59,.13); }
+        .rd-plot {
+            position: absolute; inset: 26px 30px; border: 1px dashed rgba(255,255,255,.14);
+            border-radius: 2px; transform: rotate(-6deg);
+        }
+        .rd-node {
+            position: absolute; width: 16px; height: 16px; transform: rotate(45deg);
+            border: 1.5px solid #0a0d12; border-radius: 3px;
+            display: grid; place-items: center;
+        }
+        .rd-node b {
+            transform: rotate(-45deg); font-family: var(--mono); font-size: 9px;
+            font-weight: 700; color: #0a0d12;
+        }
+        .rd-node.n1 { left: 28%; top: 40%; background: var(--amber); width: 22px; height: 22px;
+            box-shadow: 0 0 0 5px rgba(242,169,59,.18); }
+        .rd-node.n2 { left: 64%; top: 35%; background: var(--teal); }
+        .rd-node.n3 { left: 52%; top: 74%; background: var(--coral); }
+
+        .rd-map-flag {
+            position: absolute; left: 14px; bottom: 14px; right: 14px;
+            display: flex; align-items: center; justify-content: space-between; gap: 10px;
+            padding: 10px 12px; border: 1px solid var(--line);
+            border-radius: var(--radius); background: rgba(10,13,18,.86);
+            backdrop-filter: blur(4px);
+        }
+        .rd-map-flag span { font-family: var(--mono); font-size: 10px; letter-spacing: .08em;
+            text-transform: uppercase; color: var(--muted); }
+        .rd-map-flag strong { display: block; margin-top: 3px; font-family: var(--display);
+            font-size: 14px; font-weight: 600; color: var(--paper); }
+        .rd-map-flag em {
+            font-family: var(--mono); font-size: 11px; font-weight: 700; font-style: normal;
+            color: var(--teal); white-space: nowrap; padding: 5px 8px;
+            border: 1px solid rgba(84,211,196,.3); border-radius: 3px; background: rgba(84,211,196,.08);
         }
 
-        .rd-map::before {
-            content: "";
-            position: absolute;
-            inset: 18px;
-            border: 1px dashed rgba(16, 24, 40, 0.18);
-            border-radius: var(--rd-radius);
+        .rd-verdict {
+            display: grid; grid-template-columns: auto 1fr; gap: 16px; align-items: center;
+            padding: 14px 16px; border: 1px solid var(--amber-deep); border-radius: var(--radius);
+            background: linear-gradient(135deg, rgba(242,169,59,.14), rgba(242,169,59,.03));
         }
+        .rd-score-big {
+            font-family: var(--mono); font-weight: 700; font-size: 46px; line-height: 1;
+            color: var(--amber-bright); letter-spacing: -.02em;
+        }
+        .rd-score-big small { display: block; font-size: 11px; letter-spacing: .1em;
+            color: var(--amber); margin-top: 4px; }
+        .rd-verdict-label { font-family: var(--mono); font-size: 11px; letter-spacing: .12em;
+            text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+        .rd-verdict-word { font-family: var(--display); font-weight: 700; font-size: 24px;
+            color: var(--paper); line-height: 1; }
+        .rd-verdict-sub { margin-top: 7px; font-size: 12px; color: var(--paper-dim); line-height: 1.4; }
 
-        .rd-map-card {
-            position: absolute;
-            top: 16px;
-            right: 16px;
-            width: min(220px, calc(100% - 32px));
-            padding: 12px;
-            border: 1px solid var(--rd-line);
-            border-radius: var(--rd-radius);
-            background: rgba(255, 255, 255, .94);
-            box-shadow: 0 16px 34px rgba(16, 24, 40, 0.12);
-        }
+        .rd-gauges { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+        .rd-gauge { padding: 11px; border: 1px solid var(--line); border-radius: var(--radius);
+            background: var(--panel); }
+        .rd-gauge span { font-family: var(--mono); font-size: 10px; letter-spacing: .08em;
+            text-transform: uppercase; color: var(--muted); }
+        .rd-gauge strong { display: block; margin: 6px 0 8px; font-family: var(--mono);
+            font-size: 16px; font-weight: 700; color: var(--paper); }
+        .rd-track { height: 4px; border-radius: 99px; background: #0a0d12; overflow: hidden; }
+        .rd-track i { display: block; height: 100%; border-radius: inherit; }
+        .rd-track i.a { background: var(--amber); }
+        .rd-track i.t { background: var(--teal); }
+        .rd-track i.c { background: var(--coral); }
 
-        .rd-map-card strong {
-            display: block;
-            margin-bottom: 6px;
-            font-size: 13px;
-        }
+        .rd-inst-listings { display: grid; gap: 1px; border: 1px solid var(--line);
+            border-radius: var(--radius); overflow: hidden; background: var(--line); }
+        .rd-inst-listings div { display: flex; justify-content: space-between; gap: 12px;
+            padding: 10px 12px; background: var(--panel); font-family: var(--mono); font-size: 11px; }
+        .rd-inst-listings span { color: var(--paper-dim); }
+        .rd-inst-listings strong { color: var(--teal); font-weight: 700; white-space: nowrap; }
 
-        .rd-map-card p {
-            margin: 0;
-            color: var(--rd-muted);
-            font-size: 12px;
-            line-height: 1.38;
-        }
+        /* corner ticks */
+        .rd-tick { position: absolute; width: 9px; height: 9px; border-color: var(--amber); opacity: .5; }
+        .rd-tick.tl { top: 8px; left: 8px; border-top: 1.5px solid; border-left: 1.5px solid; }
+        .rd-tick.tr { top: 8px; right: 8px; border-top: 1.5px solid; border-right: 1.5px solid; }
+        .rd-tick.bl { bottom: 8px; left: 8px; border-bottom: 1.5px solid; border-left: 1.5px solid; }
+        .rd-tick.br { bottom: 8px; right: 8px; border-bottom: 1.5px solid; border-right: 1.5px solid; }
 
-        .rd-section-head {
-            display: grid;
-            grid-template-columns: minmax(440px, 1.18fr) minmax(280px, .82fr);
-            column-gap: 28px;
-            row-gap: 12px;
-            align-items: end;
-            margin-bottom: 18px;
-        }
-
-        .rd-section-title,
-        .rd-section-head h2,
-        .rd-problem-title,
-        .rd-final h2 {
-            margin: 0;
-            color: var(--rd-ink);
-            font-family: var(--rd-font) !important;
-            font-size: var(--rd-section-title) !important;
-            line-height: 1.1 !important;
-            font-weight: var(--rd-section-title-weight) !important;
-            font-variation-settings: "wght" var(--rd-section-title-weight);
-            letter-spacing: 0 !important;
-        }
-
-        .rd-section-head p {
-            align-self: end;
-            justify-self: end;
-            max-width: 500px;
-            margin: 0;
-            padding-bottom: 4px;
-            color: var(--rd-muted);
-            font-size: 16px;
-            line-height: 1.5;
-        }
-
-        #demo {
-            padding-bottom: 12px;
-        }
-
-        .rd-card-grid-3,
-        .rd-card-grid-4,
-        .rd-price-grid {
-            display: grid;
-            gap: 12px;
-        }
-
-        .rd-card-grid-3 {
-            grid-template-columns: repeat(3, 1fr);
-        }
-
-        .rd-card-grid-4 {
-            grid-template-columns: repeat(4, 1fr);
-        }
+        /* ---------- cards / grids ---------- */
+        .rd-grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+        .rd-grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+        .rd-grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
 
         .rd-card {
-            min-height: 156px;
-            padding: 16px;
-        }
-
-        .rd-card.blue {
-            background: var(--rd-blue-soft);
-        }
-
-        .rd-card.green {
-            background: var(--rd-green-soft);
-        }
-
-        .rd-card.amber {
-            background: var(--rd-amber-soft);
-        }
-
-        .rd-card.coral {
-            background: var(--rd-coral-soft);
-        }
-
-        .rd-card .num {
-            margin-bottom: 11px;
-            color: var(--rd-muted);
-            font-size: 12px;
-            font-weight: 850;
-        }
-
-        .rd-card h3 {
-            margin: 0 0 9px;
-            min-height: 0;
-            padding: 0;
-            color: var(--rd-ink);
-            font-size: var(--rd-card-title);
-            line-height: 1.12;
-            font-weight: 900;
-            overflow-wrap: normal;
-            word-break: normal;
-            text-wrap: auto;
-        }
-
-        .rd-card p {
-            margin: 0;
-            color: #475467;
-            font-size: 14px;
-            line-height: 1.46;
-        }
-
-        .rd-problem-section {
-            padding-top: 38px;
-        }
-
-        .rd-problem-layout {
-            display: grid;
-            grid-template-columns: minmax(440px, 1.18fr) minmax(280px, .82fr);
-            gap: 28px;
-            align-items: start;
-            margin-bottom: 18px;
-        }
-
-        .rd-problem-title {
-            margin: 0;
-            max-width: 760px;
-        }
-
-        .rd-problem-lead {
-            max-width: 820px;
-            margin: 0;
-            color: var(--rd-muted);
-            font-size: 17px;
-            line-height: 1.55;
-        }
-
-        .rd-manual-flow {
-            display: grid;
-            gap: 8px;
-            padding: 14px;
-            border: 1px solid var(--rd-line);
-            border-radius: var(--rd-radius);
-            background: #fff;
-            box-shadow: 0 14px 34px rgba(16, 24, 40, 0.08);
-        }
-
-        .rd-manual-flow-title {
-            display: flex;
-            justify-content: space-between;
-            gap: 12px;
-            color: var(--rd-ink);
-            font-size: 13px;
-            font-weight: 900;
-        }
-
-        .rd-manual-flow-title span:last-child {
-            color: #b42318;
-            font-weight: 850;
-        }
-
-        .rd-manual-step {
-            display: grid;
-            grid-template-columns: 86px minmax(0, 1fr);
-            gap: 12px;
-            min-height: 38px;
-            align-items: center;
-            padding: 8px 10px;
-            border: 1px solid #e3e9f2;
-            border-radius: var(--rd-radius);
-            background: #f8fafc;
-            color: #344054;
-            font-size: 12px;
-            font-weight: 780;
-        }
-
-        .rd-manual-step strong {
-            color: var(--rd-ink);
-            font-size: 12px;
-            font-weight: 900;
-        }
-
-        .rd-problem-list {
-            display: grid;
-            grid-template-columns: repeat(3, minmax(0, 1fr));
-            gap: 12px;
-        }
-
-        .rd-problem-item {
-            display: grid;
-            grid-template-columns: 42px minmax(0, 1fr);
-            gap: 12px;
-            min-height: 150px;
-            padding: 16px;
-            border: 1px solid var(--rd-line);
-            border-radius: var(--rd-radius);
-            background: #fff;
-            box-shadow: 0 14px 30px rgba(16, 24, 40, 0.06);
-        }
-
-        .rd-problem-num {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 42px;
-            height: 42px;
-            border-radius: 50%;
-            background: var(--rd-soft);
-            color: var(--rd-ink);
-            font-size: 13px;
-            font-weight: 930;
-        }
-
-        .rd-problem-item h3 {
-            margin: 0 0 8px;
-            min-height: 0;
-            padding: 0;
-            color: var(--rd-ink);
-            font-size: var(--rd-card-title);
-            line-height: 1.12;
-            font-weight: 900;
-            overflow-wrap: normal;
-            word-break: normal;
-            text-wrap: auto;
-        }
-
-        .rd-problem-item p {
-            margin: 0;
-            color: #475467;
-            font-size: 14px;
-            line-height: 1.45;
-        }
-
-        .rd-demo-brief {
-            display: grid;
-            grid-template-columns: minmax(240px, .72fr) minmax(0, 1.28fr);
-            gap: 12px;
-            align-items: start;
-            margin: 8px 0 10px;
-        }
-
-        .rd-demo-card,
-        .rd-demo-note {
-            padding: 14px;
-            border: 1px solid var(--rd-line);
-            border-radius: var(--rd-radius);
-            background: #fff;
-            box-shadow: 0 12px 30px rgba(16, 24, 40, 0.07);
-        }
-
-        .rd-demo-card h3,
-        .rd-demo-note h3 {
-            margin: 0 0 8px;
-            min-height: 0;
-            padding: 0;
-            color: var(--rd-ink);
-            font-size: var(--rd-card-title);
-            line-height: 1.12;
-            font-weight: 900;
-            overflow-wrap: normal;
-            word-break: normal;
-            text-wrap: auto;
-        }
-
-        .rd-demo-card p,
-        .rd-demo-note p {
-            margin: 0;
-            color: var(--rd-muted);
-            font-size: 14px;
-            line-height: 1.45;
-        }
-
-        .rd-demo-note {
-            display: grid;
-            grid-template-columns: repeat(4, minmax(0, 1fr));
-            gap: 8px;
-            box-shadow: none;
-            background: #f8fafc;
-        }
-
-        .rd-demo-note span {
-            display: block;
-            color: var(--rd-muted);
-            font-size: 11px;
-            font-weight: 850;
-        }
-
-        .rd-demo-note strong {
-            display: block;
-            margin-top: 5px;
-            color: var(--rd-ink);
-            font-size: 14px;
-            line-height: 1.25;
-            font-weight: 900;
-        }
-
-        .rd-compact-grid .rd-card {
-            min-height: 142px;
-            box-shadow: none;
-        }
-
-        div[data-testid="stSelectbox"] label,
-        div[data-testid="stSlider"] label {
-            color: #344054 !important;
-            font-size: 13px !important;
-            font-weight: 800 !important;
-        }
-
-        .stProgress > div > div > div > div {
-            background: linear-gradient(90deg, var(--rd-green), var(--rd-amber));
-        }
-
-        .rd-decision-grid {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 10px;
-            margin: 0 0 14px;
-        }
-
-        .rd-decision-card {
-            min-height: 108px;
-            padding: 13px;
-            border: 1px solid var(--rd-line);
-            border-radius: var(--rd-radius);
-            background: #fff;
-        }
-
-        .rd-decision-card span {
-            display: block;
-            margin-bottom: 8px;
-            color: var(--rd-muted);
-            font-size: 12px;
-            font-weight: 850;
-        }
-
-        .rd-decision-card strong {
-            display: block;
-            color: var(--rd-ink);
-            font-size: 26px;
-            line-height: 1.04;
-            font-weight: 930;
-        }
-
-        .rd-decision-card em {
-            display: block;
-            margin-top: 8px;
-            color: #0f8f59;
-            font-size: 12px;
-            font-style: normal;
-            font-weight: 760;
-        }
-
-        .rd-compare {
-            overflow: hidden;
-            border: 1px solid var(--rd-line);
-            border-radius: var(--rd-radius);
-            background: #fff;
-        }
-
-        .rd-compare-row {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            border-bottom: 1px solid var(--rd-line);
-        }
-
-        .rd-compare-row:last-child {
-            border-bottom: 0;
-        }
-
-        .rd-compare-cell {
-            padding: 16px 18px;
-            color: #344054;
-            font-size: 15px;
-            line-height: 1.45;
-        }
-
-        .rd-compare-cell:first-child {
-            border-right: 1px solid var(--rd-line);
-            background: #f8fafc;
-        }
-
-        .rd-compare-cell strong {
-            display: block;
-            margin-bottom: 5px;
-            color: var(--rd-ink);
-            font-size: 12px;
-            font-weight: 900;
-        }
-
-        .rd-price-grid {
-            grid-template-columns: repeat(6, minmax(0, 1fr));
-            align-items: stretch;
-        }
-
-        .rd-price {
-            grid-column: span 2;
-            min-height: 274px;
-            display: flex;
-            flex-direction: column;
-            padding: 16px;
-        }
-
-        .rd-price:nth-child(4),
-        .rd-price:nth-child(5) {
-            grid-column: span 3;
-            min-height: 236px;
-        }
-
-        .rd-price.featured {
-            border-color: #f2c200;
-            background: #fff8d6;
-            box-shadow: 0 18px 42px rgba(250, 204, 21, 0.22);
-        }
-
-        .rd-badge {
-            align-self: flex-start;
-            margin-bottom: 10px;
-            padding: 5px 8px;
-            border-radius: var(--rd-radius);
-            background: var(--rd-ink);
-            color: #fff;
-            font-size: 11px;
-            font-weight: 850;
-        }
-
-        .rd-price h3 {
-            margin: 0 0 8px;
-            color: var(--rd-ink);
-            font-size: var(--rd-subtitle);
-            line-height: 1.1;
-            font-weight: 900;
-        }
-
-        .rd-price-value {
-            margin-bottom: 5px;
-            color: var(--rd-ink);
-            font-size: clamp(25px, 2.05vw, 29px);
-            line-height: 1;
-            font-weight: 930;
-            white-space: nowrap;
-        }
-
-        .rd-price-sub {
-            margin-bottom: 12px;
-            color: var(--rd-muted);
-            font-size: 13px;
-            font-weight: 760;
-        }
-
-        .rd-price ul {
-            flex: 1;
-            margin: 0 0 14px;
-            padding-left: 18px;
-            color: #475467;
-            font-size: 13px;
-            line-height: 1.38;
-        }
-
-        .rd-price li {
-            margin-bottom: 5px;
-        }
-
-        .rd-user-flow {
-            margin-top: 16px;
-        }
-
-        .rd-user-flow-head {
-            display: grid;
-            grid-template-columns: minmax(420px, 1.12fr) minmax(280px, .88fr);
-            gap: 20px;
-            align-items: end;
-            margin-bottom: 10px;
-        }
-
-        .rd-user-flow-head h3 {
-            margin: 0;
-            color: var(--rd-ink);
-            font-size: var(--rd-subtitle);
-            line-height: 1.08;
-            font-weight: 930;
-        }
-
-        .rd-user-flow-head p {
-            justify-self: end;
-            max-width: 500px;
-            margin: 0;
-            color: var(--rd-muted);
-            font-size: 15px;
-            line-height: 1.5;
-        }
-
-        .rd-flow-grid {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 0;
-            overflow: hidden;
-            border: 1px solid var(--rd-line);
-            border-radius: var(--rd-radius);
-            background: #fff;
-        }
-
-        .rd-flow-step {
-            min-height: 142px;
-            padding: 15px;
-            border-right: 1px solid var(--rd-line);
-            background: #fff;
-        }
-
-        .rd-flow-step:last-child {
-            border-right: 0;
-        }
-
-        .rd-flow-step span {
-            display: block;
-            margin-bottom: 10px;
-            color: var(--rd-muted);
-            font-size: 12px;
-            font-weight: 850;
-        }
-
-        .rd-flow-step strong {
-            display: block;
-            margin-bottom: 8px;
-            min-height: 0;
-            padding: 0;
-            color: var(--rd-ink);
-            font-size: var(--rd-card-title);
-            line-height: 1.12;
-            font-weight: 900;
-            overflow-wrap: normal;
-            word-break: normal;
-            text-wrap: auto;
-        }
-
-        .rd-flow-step p {
-            margin: 0;
-            color: #475467;
-            font-size: 13px;
-            line-height: 1.45;
-        }
-
-        .rd-faq-grid {
-            display: grid;
-            grid-template-columns: .9fr 1.1fr;
-            gap: 26px;
-            align-items: start;
-        }
-
-        .rd-faq-list {
-            display: grid;
-            gap: 10px;
-        }
-
-        details.rd-faq {
-            overflow: hidden;
-            border: 1px solid var(--rd-line);
-            border-radius: var(--rd-radius);
-            background: #fff;
-        }
-
-        details.rd-faq summary {
-            cursor: pointer;
-            padding: 16px;
-            color: var(--rd-ink);
-            font-size: 15px;
-            font-weight: 900;
-            list-style: none;
-        }
-
-        details.rd-faq summary::-webkit-details-marker {
-            display: none;
-        }
-
-        details.rd-faq p {
-            margin: 0;
-            padding: 0 16px 16px;
-            color: var(--rd-muted);
-            font-size: 14px;
-            line-height: 1.5;
-        }
-
+            position: relative; padding: 22px 20px; border: 1px solid var(--line);
+            border-radius: var(--radius); background: var(--panel);
+            transition: border-color .18s, transform .18s;
+        }
+        .rd-card:hover { border-color: var(--raise); transform: translateY(-2px); }
+        .rd-card .idx { font-family: var(--mono); font-size: 11px; font-weight: 700;
+            letter-spacing: .1em; color: var(--muted); }
+        .rd-card .tag { font-family: var(--mono); font-size: 10px; font-weight: 700;
+            letter-spacing: .1em; text-transform: uppercase; color: var(--teal); }
+        .rd-card strong { display: block; margin: 12px 0 9px; font-family: var(--display);
+            font-size: 19px; font-weight: 600; line-height: 1.18; color: var(--paper); }
+        .rd-card p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.55; }
+        .rd-card.amber { border-color: var(--amber-deep);
+            background: linear-gradient(160deg, rgba(242,169,59,.09), var(--panel) 55%); }
+        .rd-card.amber .tag { color: var(--amber); }
+        .rd-card.teal { border-color: var(--teal-deep);
+            background: linear-gradient(160deg, rgba(84,211,196,.08), var(--panel) 55%); }
+        .rd-card.coral { border-color: #8a3a32;
+            background: linear-gradient(160deg, rgba(255,111,94,.09), var(--panel) 55%); }
+        .rd-card.coral .tag { color: var(--coral); }
+
+        /* stat row */
+        .rd-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+        .rd-stat { padding: 20px; border: 1px solid var(--line); border-radius: var(--radius);
+            background: var(--panel); }
+        .rd-stat b { display: block; font-family: var(--mono); font-weight: 700;
+            font-size: 30px; color: var(--amber); letter-spacing: -.01em; }
+        .rd-stat span { display: block; margin-top: 8px; color: var(--muted); font-size: 13px; line-height: 1.5; }
+
+        /* ---------- table ---------- */
+        .rd-table { border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+        .rd-trow { display: grid; grid-template-columns: .85fr 1fr 1fr 1.05fr; border-top: 1px solid var(--line); }
+        .rd-trow:first-child { border-top: 0; }
+        .rd-trow.head { background: var(--panel-2); }
+        .rd-trow.head .rd-tcell { font-family: var(--mono); font-size: 11px; font-weight: 700;
+            letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+        .rd-tcell { padding: 16px; border-left: 1px solid var(--line); color: var(--muted);
+            font-size: 13.5px; line-height: 1.5; background: var(--panel); }
+        .rd-tcell:first-child { border-left: 0; }
+        .rd-tcell strong { display: block; margin-bottom: 5px; font-family: var(--display);
+            font-size: 14px; font-weight: 600; color: var(--paper); }
+        .rd-tcell.win { color: var(--paper-dim); }
+        .rd-tcell.win::before { content: "→ "; color: var(--amber); font-weight: 700; }
+
+        /* ---------- price ---------- */
+        .rd-price { padding: 24px 20px; border: 1px solid var(--line); border-radius: var(--radius);
+            background: var(--panel); }
+        .rd-price.feature { border-color: var(--amber-deep);
+            background: linear-gradient(165deg, rgba(242,169,59,.1), var(--panel) 60%); }
+        .rd-price .tag { font-family: var(--mono); font-size: 10px; font-weight: 700;
+            letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+        .rd-price b { display: block; margin: 12px 0; font-family: var(--display);
+            font-size: 26px; font-weight: 600; color: var(--paper); }
+        .rd-price.feature b { color: var(--amber-bright); }
+        .rd-price p { margin: 0; color: var(--muted); font-size: 13.5px; line-height: 1.55; }
+
+        /* ---------- final ---------- */
         .rd-final {
-            display: grid;
-            grid-template-columns: minmax(0, 1fr) auto;
-            gap: 24px;
-            align-items: end;
-            margin-top: 18px;
-            padding: 28px;
-            border-radius: var(--rd-radius);
-            background: #101828;
-            color: #fff;
+            position: relative; display: grid; grid-template-columns: 1.4fr .9fr; gap: 28px;
+            align-items: center; padding: 40px; border: 1px solid var(--amber-deep);
+            border-radius: var(--radius-lg); overflow: hidden;
+            background:
+                radial-gradient(700px 300px at 85% 20%, rgba(242,169,59,.16), transparent 60%),
+                linear-gradient(180deg, var(--panel-2), var(--panel));
         }
+        .rd-final h2 { margin: 0 0 14px; font-family: var(--display); font-weight: 600;
+            font-size: clamp(28px, 3.6vw, 46px); line-height: 1.02; letter-spacing: -.02em; color: var(--paper); }
+        .rd-final h2 em { color: var(--amber); font-style: normal; }
+        .rd-final p { margin: 0 0 18px; color: var(--paper-dim); font-size: 16px; line-height: 1.6; max-width: 620px; }
+        .rd-roadmap { display: flex; flex-wrap: wrap; gap: 8px; }
+        .rd-roadmap span { font-family: var(--mono); font-size: 11px; padding: 7px 11px;
+            border: 1px solid var(--line); border-radius: 3px; color: var(--paper-dim);
+            background: rgba(12,15,20,.4); }
+        .rd-final-box { padding: 22px; border: 1px solid var(--amber-deep); border-radius: var(--radius);
+            background: rgba(12,15,20,.5); }
+        .rd-final-box .tag { font-family: var(--mono); font-size: 10px; font-weight: 700;
+            letter-spacing: .1em; text-transform: uppercase; color: var(--amber); }
+        .rd-final-box strong { display: block; margin: 12px 0 18px; font-family: var(--display);
+            font-size: 21px; font-weight: 600; line-height: 1.2; color: var(--paper); }
 
-        .rd-final h2 {
-            margin: 0 0 10px;
-            color: #fff;
+        .rd-src { margin-top: 14px; font-family: var(--mono); font-size: 11px; color: var(--muted-2); line-height: 1.6; }
+
+        /* ---------- streamlit demo widgets (dark theme) ---------- */
+        [data-testid="stVerticalBlockBorderWrapper"] {
+            border: 1px solid var(--line) !important;
+            border-radius: var(--radius-lg) !important;
+            background: var(--panel) !important;
+            padding: 22px !important;
         }
-
-        .rd-final p {
-            max-width: 760px;
-            margin: 0;
-            color: #d0d5dd;
-            font-size: 17px;
-            line-height: 1.5;
+        .rd-demo-shell { margin-top: 4px; padding: 22px; border: 1px solid var(--line);
+            border-radius: var(--radius-lg); background: var(--panel); }
+        div[data-testid="stSelectbox"] label, div[data-testid="stSlider"] label {
+            color: var(--muted) !important; font-family: var(--mono) !important;
+            font-size: 11px !important; font-weight: 700 !important; letter-spacing: .08em !important;
+            text-transform: uppercase !important;
         }
-
-        .rd-footer-nav {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 14px;
-            min-height: 58px;
-            margin-top: 24px;
-            padding: 8px 0 0;
-            border-top: 1px solid rgba(16, 24, 40, 0.10);
+        div[data-baseweb="select"] > div {
+            background: var(--void) !important; border-color: var(--line) !important;
+            border-radius: var(--radius) !important; color: var(--paper) !important;
         }
+        div[data-baseweb="select"] * { color: var(--paper) !important; }
+        [data-testid="stSlider"] [data-baseweb="slider"] [role="slider"] { background: var(--amber) !important; }
+        [data-testid="stSlider"] [data-baseweb="slider"] > div > div { background: var(--amber) !important; }
+        .stProgress > div > div > div { background: #0a0d12 !important; }
+        .stProgress > div > div > div > div { background: linear-gradient(90deg, var(--amber), var(--amber-bright)) !important; }
+        [data-testid="stProgress"] p, .stProgress p { color: var(--paper-dim) !important; font-family: var(--mono) !important; }
 
-        .rd-footer-links {
-            display: flex;
-            align-items: center;
-            gap: 14px;
-            color: var(--rd-muted);
-            font-size: 13px;
-            font-weight: 750;
+        .rd-result { display: grid; grid-template-columns: 1.1fr .9fr; gap: 14px; align-items: start; margin-top: 18px; }
+        .rd-result-main { padding: 20px; border: 1px solid var(--amber-deep); border-radius: var(--radius);
+            background: linear-gradient(160deg, rgba(242,169,59,.1), var(--panel-2) 60%); }
+        .rd-result-main .tag { font-family: var(--mono); font-size: 10px; font-weight: 700;
+            letter-spacing: .1em; text-transform: uppercase; color: var(--amber); }
+        .rd-result-main strong { display: block; margin: 10px 0; font-family: var(--display);
+            font-size: 28px; font-weight: 600; color: var(--paper); }
+        .rd-result-main p { margin: 0 0 14px; color: var(--paper-dim); font-size: 14px; line-height: 1.55; }
+        .rd-next { display: inline-flex; font-family: var(--mono); font-size: 11px; font-weight: 700;
+            color: var(--void); background: var(--amber); padding: 8px 12px; border-radius: 3px; }
+        .rd-mini { display: grid; gap: 8px; }
+        .rd-mini-row { display: flex; justify-content: space-between; align-items: center;
+            padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--radius);
+            background: var(--panel); font-family: var(--mono); font-size: 12px; }
+        .rd-mini-row span { color: var(--muted); }
+        .rd-mini-row strong { color: var(--paper); font-weight: 700; }
+        .rd-listings { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-top: 12px; }
+        .rd-listing { padding: 16px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); }
+        .rd-listing .tag { font-family: var(--mono); font-size: 11px; color: var(--teal); }
+        .rd-listing strong { display: block; margin: 8px 0 7px; font-family: var(--display);
+            font-size: 16px; font-weight: 600; color: var(--paper); }
+        .rd-listing p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
+        .rd-rank { display: grid; gap: 10px; margin-top: 14px; }
+        .rd-rank-card { padding: 14px 16px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); }
+        .rd-rank-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 9px; }
+        .rd-rank-top span { font-family: var(--display); font-size: 15px; font-weight: 600; color: var(--paper); }
+        .rd-rank-top em { font-family: var(--mono); font-size: 13px; font-weight: 700; font-style: normal; color: var(--amber); }
+        .rd-rank-card p { margin: 9px 0 0; color: var(--muted); font-size: 12.5px; line-height: 1.5; }
+
+        .rd-architecture { padding: 16px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); }
+        .rd-architecture img { width: 100%; display: block; border-radius: 3px; border: 1px solid var(--line); }
+        .rd-architecture.fallback { font-family: var(--mono); font-size: 13px; color: var(--muted); text-align: center; padding: 40px; }
+
+        /* ---------- responsive ---------- */
+        @media (max-width: 1080px) {
+            .rd-hero, .rd-section-head, .rd-result, .rd-final { grid-template-columns: 1fr; }
+            .rd-hero { gap: 32px; }
+            .rd-section-head { gap: 12px; }
+            .rd-section-head p { align-self: start; }
+            .rd-grid-4 { grid-template-columns: repeat(2, 1fr); }
         }
-
-        .rd-footer-links a {
-            color: inherit !important;
-            text-decoration: none !important;
-        }
-
-        .rd-footer-links a:hover {
-            color: var(--rd-ink) !important;
-        }
-
-        @media (max-width: 1120px) {
-            .rd-section-head,
-            .rd-problem-layout,
-            .rd-demo-brief,
-            .rd-user-flow-head,
-            .rd-faq-grid,
-            .rd-final {
-                grid-template-columns: 1fr;
-            }
-
-            .rd-price-grid,
-            .rd-card-grid-4,
-            .rd-metric-grid,
-            .rd-competitor-grid,
-            .rd-economy-grid,
-            .rd-evidence-grid,
-            .rd-unit-model {
-                grid-template-columns: repeat(2, 1fr);
-            }
-
-            .rd-audience-grid,
-            .rd-investor-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .rd-flow-grid {
-                grid-template-columns: repeat(2, 1fr);
-            }
-
-            .rd-dashboard {
-                grid-template-columns: 1fr;
-            }
-
-            .rd-sidebar {
-                display: none;
-            }
-
-            .rd-kpi-grid,
-            .rd-grid-3,
-            .rd-problem-list,
-            .rd-decision-grid {
-                grid-template-columns: repeat(2, 1fr);
-            }
-
-            .rd-price,
-            .rd-price:nth-child(4),
-            .rd-price:nth-child(5) {
-                grid-column: auto;
-            }
-
-            .rd-hero {
-                grid-template-columns: 1fr;
-                padding: 34px 0 52px;
-            }
-
-            .rd-hero > div:first-child {
-                max-width: none;
-            }
-
-            .rd-section-head p,
-            .rd-user-flow-head p {
-                justify-self: start;
-                max-width: 660px;
-                padding-bottom: 0;
-            }
-        }
-
-        @media (max-width: 760px) {
-            .block-container {
-                padding-left: 14px;
-                padding-right: 14px;
-            }
-
-            .rd-section {
-                padding: 32px 0;
-            }
-
-            .rd-section-head {
-                margin-bottom: 14px;
-            }
-
-            .rd-section-head p {
-                font-size: 15px;
-                line-height: 1.45;
-            }
-
-            .rd-nav {
-                margin-left: -14px;
-                margin-right: -14px;
-            }
-
-            .rd-nav-links,
-            .rd-footer-links {
-                display: none;
-            }
-
-            .rd-footer-nav {
-                align-items: flex-start;
-                flex-direction: column;
-            }
-
-            .rd-title-xl {
-                font-size: 40px;
-                line-height: 1.06;
-            }
-
-            .rd-hero {
-                padding: 28px 0 34px;
-            }
-
-            .rd-note {
-                margin-top: 14px;
-            }
-
-            .rd-proof {
-                min-height: 0;
-                padding: 12px;
-            }
-
-            .rd-proof-grid,
-            .rd-card-grid-3,
-            .rd-card-grid-4,
-            .rd-price-grid,
-            .rd-stacked-cards,
-            .rd-metric-grid,
-            .rd-audience-grid,
-            .rd-competitor-grid,
-            .rd-economy-grid,
-            .rd-evidence-grid,
-            .rd-investor-grid,
-            .rd-unit-model,
-            .rd-map-legend,
-            .rd-demo-note,
-            .rd-kpi-grid,
-            .rd-grid-2,
-            .rd-grid-3,
-            .rd-problem-list,
-            .rd-decision-grid,
-            .rd-flow-grid,
-            .rd-compare-row {
-                grid-template-columns: 1fr;
-            }
-
-            .rd-demo-note {
-                grid-template-columns: repeat(2, minmax(0, 1fr));
-                padding: 12px;
-            }
-
-            .rd-demo-note strong {
-                font-size: 13px;
-            }
-
-            .rd-demo-card {
-                padding: 13px;
-            }
-
-            .rd-compare-cell:first-child {
-                border-right: 0;
-                border-bottom: 1px solid var(--rd-line);
-            }
-
-            .rd-table-row,
-            .rd-overview-line {
-                grid-template-columns: 1fr;
-            }
-
-            .rd-table-cell {
-                border-right: 0;
-                border-bottom: 1px solid var(--rd-line);
-            }
-
-            .rd-table-cell:last-child {
-                border-bottom: 0;
-            }
-
-            .rd-window-bar,
-            .rd-topline,
-            .rd-dashboard-title {
-                align-items: flex-start;
-                flex-direction: column;
-            }
-
-            .rd-demo-results-gap {
-                height: 14px;
-            }
-
-            .st-key-rd_demo_input_panel [data-testid="stVerticalBlockBorderWrapper"],
-            .st-key-rd_map_panel [data-testid="stVerticalBlockBorderWrapper"],
-            .st-key-rd_summary_panel [data-testid="stVerticalBlockBorderWrapper"] {
-                padding: 14px 14px 22px !important;
-            }
-
-            .rd-decision-card {
-                min-height: 0;
-                padding: 12px;
-            }
-
-            .rd-decision-card strong {
-                font-size: 24px;
-            }
-
-            .rd-map {
-                min-height: 250px;
-            }
-
-            .rd-source-item {
-                grid-template-columns: 1fr;
-                gap: 4px;
-                align-items: start;
-            }
-
-            .rd-source-item span:last-child {
-                text-align: left;
-            }
-
-            .rd-price,
-            .rd-price:nth-child(4),
-            .rd-price:nth-child(5) {
-                min-height: 0;
-                padding: 15px;
-            }
-
-            .rd-price ul {
-                flex: none;
-            }
-
-            .rd-chip-row,
-            .rd-mini-actions {
-                width: 100%;
-            }
-
-            .rd-health {
-                width: 100%;
-            }
+        @media (max-width: 680px) {
+            .block-container { padding-left: 16px; padding-right: 16px; }
+            .rd-nav { margin-left: -16px; margin-right: -16px; gap: 10px; padding: 12px 16px; }
+            .rd-nav-links { display: none; }
+            .rd-nav .rd-btn { padding: 0 13px; font-size: 12px; min-height: 40px; }
+            .rd-grid-2, .rd-grid-3, .rd-grid-4, .rd-stats, .rd-gauges, .rd-listings { grid-template-columns: 1fr; }
+            .rd-instrument { min-width: 0; }
+            .rd-trow { grid-template-columns: 1fr; }
+            .rd-tcell { border-left: 0; border-top: 1px solid var(--line); }
+            .rd-tcell:first-child { border-top: 0; }
+            .rd-verdict { grid-template-columns: 1fr; text-align: left; }
         }
         </style>
-        """,
-        unsafe_allow_html=True,
+        """
     )
-
-
-def html_block(markup: str) -> None:
-    st.markdown(markup, unsafe_allow_html=True)
-
-
-def render_region_map(region_name: str) -> None:
-    points = REGION_MAP_POINTS[region_name]
-    center_lat = sum(float(point["lat"]) for point in points) / len(points)
-    center_lon = sum(float(point["lon"]) for point in points) / len(points)
-
-    point_layer = pdk.Layer(
-        "ScatterplotLayer",
-        data=points,
-        get_position="[lon, lat]",
-        get_radius="radius",
-        get_fill_color="color",
-        get_line_color=[255, 255, 255, 235],
-        line_width_min_pixels=2,
-        pickable=True,
-        radius_min_pixels=9,
-        radius_max_pixels=34,
-        opacity=0.9,
-    )
-    label_layer = pdk.Layer(
-        "TextLayer",
-        data=points,
-        get_position="[lon, lat]",
-        get_text="district",
-        get_size=13,
-        get_color=[16, 24, 40, 230],
-        get_pixel_offset=[0, -28],
-        get_text_anchor="'middle'",
-        get_alignment_baseline="'bottom'",
-    )
-
-    st.pydeck_chart(
-        pdk.Deck(
-            map_style="https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
-            initial_view_state=pdk.ViewState(
-                latitude=center_lat,
-                longitude=center_lon,
-                zoom=CITY_MAP_ZOOM.get(region_name, 10.2),
-                pitch=0,
-            ),
-            layers=[point_layer, label_layer],
-            tooltip={
-                "html": (
-                    "<b>{district}</b><br/>"
-                    "Спрос: {demand}/100<br/>"
-                    "Конкуренция: {competition}/100<br/>"
-                    "Решение: {status}"
-                ),
-                "style": {
-                    "backgroundColor": "white",
-                    "color": "#101828",
-                    "fontFamily": "Inter, Arial, sans-serif",
-                    "fontSize": "12px",
-                    "border": "1px solid #d9e0ea",
-                    "borderRadius": "8px",
-                    "boxShadow": "0 14px 32px rgba(16, 24, 40, 0.16)",
-                },
-            },
-        ),
-        height=330,
-        width="stretch",
-    )
-
-
-def render_map_legend(region_name: str) -> None:
-    rows = []
-    for point in REGION_MAP_POINTS[region_name]:
-        color = point["color"]
-        rows.append(
-            '<div class="rd-map-legend-row">'
-            f'<span class="rd-map-legend-dot" style="background:rgba({color[0]}, {color[1]}, {color[2]}, .9);"></span>'
-            f'<strong>{escape(str(point["district"]))}</strong>'
-            f'<span>{escape(str(point["status"]))}</span>'
-            "</div>"
-        )
-    html_block(f'<div class="rd-map-legend">{"".join(rows)}</div>')
 
 
 def render_nav() -> None:
-    html_block(
+    html(
         """
         <nav class="rd-nav">
             <a class="rd-brand" href="#top"><span class="rd-mark"></span><span>RealDemand</span></a>
             <div class="rd-nav-links">
-                <a href="#market">Рынок</a>
-                <a href="#audience">Аудитория</a>
                 <a href="#problem">Проблема</a>
-                <a href="#solution">Решение</a>
-                <a href="#competition">Конкуренты</a>
-                <a href="#economics">Экономика</a>
-                <a href="#investment">Бизнес-логика</a>
+                <a href="#audience">ЦА</a>
+                <a href="#how">Как</a>
+                <a href="#demo">Демо</a>
+                <a href="#market">Рынок</a>
+                <a href="#rivals">Конкуренты</a>
+                <a href="#money">Деньги</a>
             </div>
-            <a class="rd-btn" href="#investment">Логика проекта</a>
+            <a class="rd-btn" href="#demo">Запустить разбор →</a>
         </nav>
         """
     )
 
 
-def render_hero() -> None:
-    html_block(
-        """
-        <section class="rd-hero" id="top">
-            <div>
-                <div class="rd-eyebrow">Обзор продукта</div>
-                <h1 class="rd-title-xl">RealDemand выбирает, где запускать пилот</h1>
-                <p class="rd-lead">Сервис показывает район старта, конкурентов, спрос, риски бюджета и источники для решения о запуске.</p>
-                <p class="rd-note">Клиент покупает быстрый ответ перед расходами на рекламу и операцию: разовый отчет от 19 900 ₽ или подписку для регулярных запусков.</p>
-                <div class="rd-actions">
-                    <a class="rd-btn" href="#market">Смотреть обзор</a>
-                    <a class="rd-btn secondary" href="#demo">Открыть прототип</a>
-                </div>
-                <div class="rd-proof-grid">
-                    <div class="rd-proof"><strong>Пользователь</strong><span>Владелец, маркетинг или команда роста перед запуском в новой локации.</span></div>
-                    <div class="rd-proof"><strong>Результат</strong><span>Район старта, список конкурентов, причины рекомендации и план контроля.</span></div>
-                    <div class="rd-proof"><strong>Бизнес</strong><span>Разовый отчет ведет в подписку для команд с повторными запусками.</span></div>
-                </div>
+def instrument_markup() -> str:
+    return """
+        <div class="rd-instrument">
+            <span class="rd-tick tl"></span><span class="rd-tick tr"></span>
+            <span class="rd-tick bl"></span><span class="rd-tick br"></span>
+            <div class="rd-inst-bar">
+                <span>RealDemand · разбор локации</span>
+                <span class="rd-inst-live"><span class="rd-dot"></span>оценка вживую</span>
             </div>
-            <div>
-                <div class="rd-panel rd-hero-result">
-                    <div class="rd-panel-title">Пример ответа сервиса <span>для пользователя</span></div>
-                    <div class="rd-summary"><strong>Тестировать осторожно</strong><p>Казань, домашние сервисы, бюджет 350&nbsp;тыс.&nbsp;₽. Начать с Ново-Савиновского района, центр не брать в первый пилот.</p></div>
-                    <div class="rd-source-list" style="margin-top:14px;">
-                        <div class="rd-source-item"><span>Район старта</span><span>Ново-Савиновский</span></div>
-                        <div class="rd-source-item"><span>Конкуренты</span><span>Клининг 116, Чистый дом, Мастер чистоты</span></div>
-                        <div class="rd-source-item"><span>Спрос</span><span>+24% по запросам и отзывам</span></div>
-                        <div class="rd-source-item"><span>Контроль</span><span>скорость отклика и вечерние слоты</span></div>
-                        <div class="rd-source-item"><span>Экспорт</span><span>отчет с источниками</span></div>
+            <div class="rd-inst-body">
+                <div class="rd-map">
+                    <span class="rd-contour c2"></span>
+                    <span class="rd-contour c1"></span>
+                    <span class="rd-plot"></span>
+                    <span class="rd-node n1"><b>1</b></span>
+                    <span class="rd-node n2"><b>2</b></span>
+                    <span class="rd-node n3"><b>3</b></span>
+                    <div class="rd-map-flag">
+                        <div><span>лучший старт</span><strong>Ново-Савиновский</strong></div>
+                        <em>2 объекта</em>
                     </div>
                 </div>
+                <div class="rd-verdict">
+                    <div class="rd-score-big">91<small>/ 100</small></div>
+                    <div>
+                        <div class="rd-verdict-label">Вердикт · Казань / кофейня / 1.8 млн ₽</div>
+                        <div class="rd-verdict-word">ОТКРЫВАТЬ</div>
+                        <div class="rd-verdict-sub">Спрос и трафик высокие, конкуренция умеренная, есть свободные помещения под формат.</div>
+                    </div>
+                </div>
+                <div class="rd-gauges">
+                    <div class="rd-gauge"><span>Спрос</span><strong>86</strong><div class="rd-track"><i class="a" style="width:86%"></i></div></div>
+                    <div class="rd-gauge"><span>Трафик</span><strong>79</strong><div class="rd-track"><i class="t" style="width:79%"></i></div></div>
+                    <div class="rd-gauge"><span>Конкур.</span><strong>55</strong><div class="rd-track"><i class="c" style="width:55%"></i></div></div>
+                </div>
+                <div class="rd-inst-listings">
+                    <div><span>пр-т Ямашева, 93 · 62 м²</span><strong>145 тыс. ₽/мес</strong></div>
+                    <div><span>ул. Чистопольская, 71 · 48 м²</span><strong>118 тыс. ₽/мес</strong></div>
+                </div>
             </div>
-        </section>
-        """
-    )
+        </div>
+    """
 
 
-def render_market_and_audience() -> None:
-    html_block(
-        """
-        <section class="rd-section" id="market">
-            <div class="rd-section-head">
-                <div>
-                    <div class="rd-eyebrow">Рынок</div>
-                    <h2 class="rd-section-title">Клиент платит перед запуском в новой локации</h2>
+def render_hero() -> None:
+    html(
+        f"""
+        <section class="rd-hero" id="top">
+            <div class="rd-hero-copy">
+                <div class="rd-eyebrow">Гео-оценка для офлайн-бизнеса</div>
+                <h1 class="rd-h1">Где открыть точку, чтобы она <em>зарабатывала</em></h1>
+                <p class="rd-lead">RealDemand читает спрос, конкурентов, трафик и реальные объявления аренды, а потом ставит локации балл и говорит прямо: открывать здесь или искать дальше.</p>
+                <div class="rd-actions">
+                    <a class="rd-btn" href="#demo">Запустить разбор →</a>
+                    <a class="rd-btn ghost" href="#how">Как считаем</a>
                 </div>
-                <p>Задача повторяется каждый раз, когда бизнес выбирает новый город, район или нишу.</p>
+                <div class="rd-readout">
+                    <span class="dotwrap"></span>
+                    <span class="k">55.79°N 49.12°E</span>
+                    <span class="sep">/</span>
+                    <span class="v">КАЗАНЬ · КОФЕЙНЯ · 1.8 МЛН ₽</span>
+                    <span class="sep">→</span>
+                    <span class="v">БАЛЛ 91</span>
+                    <span class="sep">·</span>
+                    <span class="verdict">ОТКРЫВАТЬ</span>
+                </div>
             </div>
-            <div class="rd-metric-grid">
-                <div class="rd-metric"><span>Кто платит</span><strong>локальные услуги</strong><p>Клининг, ремонт, фитнес, кружки, кофейни, франчайзи.</p></div>
-                <div class="rd-metric"><span>Когда платит</span><strong>до запуска</strong><p>До рекламы, аренды, найма и операционной подготовки.</p></div>
-                <div class="rd-metric"><span>Что получает</span><strong>район старта</strong><p>Плюс конкуренты, спрос, риски бюджета и источники.</p></div>
-                <div class="rd-metric"><span>Почему повторяет</span><strong>новые точки</strong><p>Каждая новая локация требует такого же решения.</p></div>
-            </div>
+            <div>{instrument_markup()}</div>
         </section>
-        <section class="rd-section" id="audience">
-            <div class="rd-section-head">
-                <div>
-                    <div class="rd-eyebrow">Целевая аудитория</div>
-                    <h2 class="rd-section-title">Пользователь хочет не аналитику, а решение</h2>
-                </div>
-                <p>Вопрос пользователя: запускаться здесь, выбрать другой район или ограничить пилот.</p>
-            </div>
-            <div class="rd-audience-grid">
-                <div class="rd-audience-card featured">
-                    <span>Основной сегмент</span>
-                    <h3>Малый и средний бизнес с локальными услугами</h3>
-                    <p>Клининг, ремонт, детские кружки, фитнес-студии, кофейни у дома и франчайзи.</p>
-                </div>
-                <div class="rd-stacked-cards">
-                    <div class="rd-audience-card"><span>Пользователь</span><h3>Маркетолог или аналитик</h3><p>Готовит решение по району, конкурентам и бюджету.</p></div>
-                    <div class="rd-audience-card"><span>Покупатель</span><h3>Владелец или руководитель</h3><p>Утверждает первый бюджет и формат пилота.</p></div>
-                    <div class="rd-audience-card"><span>Команда роста</span><h3>Продукт и рост</h3><p>Сравнивает новые города, ниши и офферы.</p></div>
-                </div>
+        <section style="padding:18px 0 0;">
+            <div class="rd-stats">
+                <div class="rd-stat"><b>1–5 млн ₽</b><span>цена ошибки локации: аренда, ремонт, найм и месяцы слабой выручки до закрытия.</span></div>
+                <div class="rd-stat"><b>Топ-3</b><span>района плюс конкретные доступные помещения под площадь, ставку и формат.</span></div>
+                <div class="rd-stat"><b>С объяснением</b><span>не чёрный ящик: балл, причины, риски и следующий шаг для каждой точки.</span></div>
             </div>
         </section>
         """
@@ -2500,283 +701,245 @@ def render_market_and_audience() -> None:
 
 
 def render_problem() -> None:
-    html_block(
+    html(
         """
-        <section class="rd-section rd-problem-section" id="problem">
-            <div class="rd-problem-layout">
-                <div>
-                    <div class="rd-eyebrow">Проблема</div>
-                    <h2 class="rd-section-title rd-problem-title">Решение о запуске часто собирают из несвязанных источников</h2>
-                </div>
-                <div class="rd-manual-flow">
-                    <div class="rd-manual-flow-title"><span>Как это обычно выглядит</span><span>3-8 часов</span></div>
-                    <div class="rd-manual-step"><strong>Статистика</strong><span>город, доходы, районы роста</span></div>
-                    <div class="rd-manual-step"><strong>Спрос</strong><span>поисковые запросы и сезонность</span></div>
-                    <div class="rd-manual-step"><strong>Конкуренты</strong><span>карты, сайты, отзывы, акции</span></div>
-                    <div class="rd-manual-step"><strong>Решение</strong><span>район пилота и риск бюджета</span></div>
-                </div>
-            </div>
-            <p class="rd-problem-lead">Даже когда данные собраны, команде нужно понять, где тестировать предложение и какой риск у первого бюджета.</p>
-            <div class="rd-problem-list" style="margin-top:16px;">
-                <div class="rd-problem-item"><div class="rd-problem-num">01</div><div><h3>Нет одной картины</h3><p>Росстат, карты, выдача, сайты игроков и отзывы приходится сводить вручную.</p></div></div>
-                <div class="rd-problem-item"><div class="rd-problem-num">02</div><div><h3>Сложно выбрать район</h3><p>В центре может быть много спроса, но аренда, реклама и конкуренты быстро съедают бюджет.</p></div></div>
-                <div class="rd-problem-item"><div class="rd-problem-num">03</div><div><h3>Ошибки видны поздно</h3><p>Если пилот запущен не там, команда узнает это уже после расходов на рекламу и операцию.</p></div></div>
-            </div>
-        </section>
-        """
-    )
-
-
-def render_solution_logic() -> None:
-    html_block(
-        """
-        <section class="rd-section" id="solution">
+        <section class="rd-section" id="problem">
             <div class="rd-section-head">
                 <div>
-                    <div class="rd-eyebrow">Решение</div>
-                    <h2 class="rd-section-title">Сервис превращает вводные в решение о пилоте</h2>
+                    <div class="rd-eyebrow">Проблема</div>
+                    <h2 class="rd-section-title">Локацию выбирают <em>на глаз</em> — и это самый дорогой риск запуска</h2>
                 </div>
-                <p>На входе город, сфера и бюджет. На выходе район старта, конкуренты, риски и отчет.</p>
+                <p>Карты показывают данные, риелторы продают метры, объявления живут отдельно от аналитики. А вопрос предпринимателя простой: какое доступное помещение снять, чтобы точка зарабатывала?</p>
             </div>
-            <div class="rd-flow-grid">
-                <div class="rd-flow-step"><span>Шаг 01</span><strong>Пользователь задает вводные</strong><p>Город, сфера, бюджет, цель пилота и горизонт теста.</p></div>
-                <div class="rd-flow-step"><span>Шаг 02</span><strong>Сервис собирает рынок</strong><p>Спрос, конкуренты, отзывы, районы и источники.</p></div>
-                <div class="rd-flow-step"><span>Шаг 03</span><strong>Сервис считает сценарий</strong><p>Индекс, район старта, риск бюджета и причины вывода.</p></div>
-                <div class="rd-flow-step"><span>Шаг 04</span><strong>Команда получает отчет</strong><p>Решение, список конкурентов, карта районов и план контроля.</p></div>
-            </div>
-            <div class="rd-compare" style="margin-top:12px;">
-                <div class="rd-compare-row"><div class="rd-compare-cell"><strong>Клиентская польза</strong>Быстрее принять решение о запуске и снизить риск первого бюджета</div><div class="rd-compare-cell"><strong>Бизнес-логика</strong>Та же задача повторяется у разных команд, городов и вертикалей</div></div>
-                <div class="rd-compare-row"><div class="rd-compare-cell"><strong>Продуктовый результат</strong>Индекс, карта районов, риски, источники и короткий отчет</div><div class="rd-compare-cell"><strong>Монетизация</strong>Разовый отчет для входа, подписка для регулярных проверок, API и внедрение для сетей</div></div>
+            <div class="rd-grid-3">
+                <div class="rd-card coral"><div class="tag">01 · разрыв</div><strong>Данных много, решения нет</strong><p>Карты, отзывы, Wordstat, объявления и статистика существуют — но свести их в один вывод приходится вручную.</p></div>
+                <div class="rd-card amber"><div class="tag">02 · поздно</div><strong>Ошибка видна после подписи</strong><p>Неудачный адрес проявляется уже после аренды, ремонта и найма — когда выйти почти невозможно.</p></div>
+                <div class="rd-card teal"><div class="tag">03 · отрыв</div><strong>Район ≠ помещение</strong><p>Даже сильный район бесполезен, если сейчас нет свободного объекта под нужную площадь, ставку и формат.</p></div>
             </div>
         </section>
         """
     )
 
 
-def render_interactive_demo() -> None:
-    html_block(
+def render_audience() -> None:
+    html(
+        """
+        <section class="rd-section" id="audience">
+            <div class="rd-section-head">
+                <div>
+                    <div class="rd-eyebrow">Целевая аудитория</div>
+                    <h2 class="rd-section-title">Предприниматель, открывающий <em>1–3 точки</em></h2>
+                </div>
+                <p>Кофейни, барбершопы, салоны красоты и небольшие магазины в городах РФ. Есть бюджет на запуск, но нет аналитического отдела и времени вручную мониторить аренду.</p>
+            </div>
+            <div class="rd-grid-4">
+                <div class="rd-card"><div class="tag">кто</div><strong>Фаундер или управляющий</strong><p>Сам решает по району, аренде и первому бюджету — без согласований.</p></div>
+                <div class="rd-card teal"><div class="tag">когда</div><strong>Перед подписью аренды</strong><p>На руках 2–5 помещений или район поиска. Нужно выбрать до необратимых затрат.</p></div>
+                <div class="rd-card amber"><div class="tag">почему больно</div><strong>Аренда фиксирует ошибку</strong><p>Плохой адрес не лечится рекламой и скидками — только переездом.</p></div>
+                <div class="rd-card"><div class="tag">проверка</div><strong>15–30 интервью</strong><p>Цель: понять, как выбирают место и каким данным реально доверяют.</p></div>
+            </div>
+            <div style="margin:30px 0 18px;"><div class="rd-eyebrow">Честно: что подтверждено, а что гипотеза</div></div>
+            <div class="rd-grid-3">
+                <div class="rd-card teal"><div class="tag">подтверждено</div><strong>Рынок растёт двузначно</strong><p>Оборот кофеен и кафе в РФ за 2025 год вырос на ~22%, число салонов красоты — на 12% год к году. Решений о локации становится больше.</p></div>
+                <div class="rd-card"><div class="tag">проверяем сейчас</div><strong>Где именно платят</strong><p>15–30 интервью: на каком шаге аренды предприниматель готов заплатить за внешний отчёт и каким источникам доверяет.</p></div>
+                <div class="rd-card coral"><div class="tag">гипотеза</div><strong>Цена 4 900 ₽</strong><p>Пока выведена из цены ошибки, а не из прямого опроса. Первая партия платных отчётов это проверит.</p></div>
+            </div>
+        </section>
+        """
+    )
+
+
+def render_architecture() -> None:
+    image_uri = image_data_uri(ARCHITECTURE_IMAGE)
+    image_markup = (
+        f'<div class="rd-architecture"><img src="{image_uri}" alt="Архитектура RealDemand"></div>'
+        if image_uri
+        else '<div class="rd-architecture fallback">схема архитектуры · assets/realdemand_architecture.jpg</div>'
+    )
+    html(
+        f"""
+        <section class="rd-section" id="how">
+            <div class="rd-section-head">
+                <div>
+                    <div class="rd-eyebrow">Как считаем</div>
+                    <h2 class="rd-section-title">Четыре слоя сигналов сводятся в <em>один балл</em> объекта</h2>
+                </div>
+                <p>Единый конвейер: сбор геоданных, парсинг коммерческой аренды, оценка районов и помещений, визуализация top-3 и выбор объекта.</p>
+            </div>
+            {image_markup}
+            <div class="rd-grid-4" style="margin-top:14px;">
+                <div class="rd-card"><div class="tag">спрос</div><strong>Wordstat и категория</strong><p>Частотность, районный интерес и близкие пользовательские боли.</p></div>
+                <div class="rd-card teal"><div class="tag">конкуренты</div><strong>Карты и 2GIS</strong><p>Плотность, рейтинг, отзывы, формат и расстояние до игроков.</p></div>
+                <div class="rd-card"><div class="tag">трафик</div><strong>Хабы и пешие потоки</strong><p>Транспорт, метро, парки, площади и точки притяжения.</p></div>
+                <div class="rd-card amber"><div class="tag">аренда</div><strong>Объявления и соответствие</strong><p>Парсим объекты, проверяем площадь, ставку, витрину и риск входа.</p></div>
+            </div>
+        </section>
+        """
+    )
+
+
+def render_demo() -> None:
+    html(
         """
         <section class="rd-section" id="demo">
             <div class="rd-section-head">
                 <div>
-                    <div class="rd-eyebrow">Прототип</div>
-                    <h2 class="rd-section-title">Демо: клининг в Казани, бюджет 350 тыс.&nbsp;₽</h2>
+                    <div class="rd-eyebrow">Живой разбор</div>
+                    <h2 class="rd-section-title">Задайте параметры — получите <em>вердикт и объекты</em></h2>
                 </div>
-                <p>Здесь видно, что получает пользователь: район старта, конкуренты, причины решения и отчет.</p>
-            </div>
-            <div class="rd-demo-brief">
-                <div class="rd-demo-card">
-                    <h3>Юзкейс пользователя</h3>
-                    <p>Команда выбирает район для первого пилота и смотрит, какие конкуренты уже забирают спрос.</p>
-                </div>
-                <div class="rd-demo-note">
-                    <div><span>1. Вводные</span><strong>город, сфера, бюджет</strong></div>
-                    <div><span>2. Рынок</span><strong>спрос и конкуренты</strong></div>
-                    <div><span>3. Решение</span><strong>район старта</strong></div>
-                    <div><span>4. Отчет</span><strong>источники и контроль</strong></div>
-                </div>
+                <p>Город, формат и бюджет на входе. На выходе — top-3 района, причины балла, риски, доступные помещения и следующий шаг.</p>
             </div>
         </section>
         """
     )
 
-    with st.container(border=True, key="rd_demo_input_panel"):
-        controls = st.columns([1, 1, 1], gap="medium")
-        with controls[0]:
-            region_name = st.selectbox("Регион", list(REGIONS), index=0)
-        with controls[1]:
-            sector_name = st.selectbox("Сфера", list(SECTORS), index=0)
-        with controls[2]:
-            budget = st.slider("Бюджет пилота, тыс. ₽", min_value=100, max_value=900, value=350, step=50)
+    with st.container(border=True):
+        col_1, col_2, col_3 = st.columns([1, 1, 1], gap="medium")
+        with col_1:
+            city = st.selectbox("Город", list(LOCATION_DATA), index=2)
+        with col_2:
+            business_type = st.selectbox("Тип бизнеса", list(BUSINESS_PROFILES), index=0)
+        with col_3:
+            budget = st.slider("Бюджет запуска, ₽", min_value=600_000, max_value=5_000_000, value=1_800_000, step=100_000)
 
-        region = REGIONS[region_name]
-        sector = SECTORS[sector_name]
-        budget_bonus = min(8, max(-8, (budget - 300) / 70))
-        score = clamp(region.demand * 0.36 + (100 - region.competition) * 0.22 + region.confidence * 0.24 + sector.base + budget_bonus)
-        launch_label, launch_note = recommendation(score)
-        competition_label = "Низкая" if region.competition < 45 else "Средняя" if region.competition < 68 else "Высокая"
-        competitors = COMPETITOR_EXAMPLES[sector_name]
-        competitor_rows = "".join(
-            '<div class="rd-source-item">'
-            f'<span>{escape(name)}</span>'
-            f'<span>{escape(signal)} / {escape(note)}</span>'
+        ranked = ranked_locations(city, business_type, budget)
+        top_candidate, top_score = ranked[0]
+        profile = BUSINESS_PROFILES[business_type]
+        listings = COMMERCIAL_LISTINGS.get(city, {}).get(top_candidate.district, [])
+
+        verdict = "ОТКРЫВАТЬ" if top_score >= 80 else ("ПРОВЕРИТЬ" if top_score >= 68 else "ПРИДЕРЖАТЬ")
+
+        st.progress(top_score / 100, text=f"ИТОГОВЫЙ БАЛЛ · {top_score}/100 · {verdict}")
+
+        listing_rows = "".join(
+            '<div class="rd-listing">'
+            f'<div class="tag">{escape(area)} · {escape(price)}</div>'
+            f'<strong>{escape(address)}</strong>'
+            f'<p>{escape(fit)}. Проверяем ставку, витрину, первый этаж и срок экспозиции.</p>'
             "</div>"
-            for name, signal, note in competitors
+            for address, area, price, fit in listings
         )
 
-        st.progress(score / 100, text=f"Индекс привлекательности: {score}/100")
+        rank_rows = "".join(
+            '<div class="rd-rank-card">'
+            f'<div class="rd-rank-top"><span>{i}. {escape(c.district)}</span><em>{s}/100</em></div>'
+            f'<div class="rd-track"><i class="a" style="width:{s}%"></i></div>'
+            f'<p>{escape(c.reason)}. Риск: {escape(c.warning)}.</p>'
+            "</div>"
+            for i, (c, s) in enumerate(ranked, start=1)
+        )
 
-        html_block(
+        next_step = (
+            f'<span class="rd-next">след. шаг → написать по {len(listings)} объектам и сверить ставку</span>'
+            if listings
+            else '<span class="rd-next">след. шаг → расширить поиск помещений по району</span>'
+        )
+
+        html(
             f"""
-                <div class="rd-decision-grid">
-                    <div class="rd-decision-card"><span>Итог сервиса</span><strong>{escape(launch_label)}</strong><em>{escape(sector.label)}</em></div>
-                    <div class="rd-decision-card"><span>Первый район</span><strong>{escape(region.district)}</strong><em>по карте спроса</em></div>
-                    <div class="rd-decision-card"><span>Спрос</span><strong>+{region.demand_growth}%</strong><em>по запросам и отзывам</em></div>
-                    <div class="rd-decision-card"><span>Конкуренция</span><strong>{escape(competition_label)}</strong><em>{len(competitors)} игрока в расчете</em></div>
+            <div class="rd-result">
+                <div class="rd-result-main">
+                    <div class="tag">Вердикт · {escape(business_type)} · {escape(city)}</div>
+                    <strong>{escape(top_candidate.district)} — {escape(verdict)}</strong>
+                    <p>Лучшая стартовая зона под формат. Критичные факторы: {escape(str(profile["critical"]))}. Ниже — реальные объекты аренды, проходящие первичную проверку.</p>
+                    {next_step}
                 </div>
+                <div class="rd-mini">
+                    <div class="rd-mini-row"><span>спрос</span><strong>{top_candidate.demand}/100</strong></div>
+                    <div class="rd-mini-row"><span>конкуренция</span><strong>{top_candidate.competition}/100</strong></div>
+                    <div class="rd-mini-row"><span>трафик</span><strong>{top_candidate.traffic}/100</strong></div>
+                    <div class="rd-mini-row"><span>помещений в выдаче</span><strong>{len(listings)}</strong></div>
+                </div>
+            </div>
+            <div class="rd-listings">{listing_rows}</div>
+            <div class="rd-rank">{rank_rows}</div>
             """
         )
 
-    html_block("""<div class="rd-demo-results-gap"></div>""")
 
-    map_col, summary_col = st.columns([1.08, 0.92], gap="medium")
-    with map_col:
-        with st.container(border=True, key="rd_map_panel"):
-            html_block(
-                f"""
-                    <div class="rd-map-head">
-                        <div class="rd-panel-title">Карта районов <span>{escape(region_name)}</span></div>
-                        <p class="rd-map-helper">Карта отвечает на вопрос “где начать”: зеленый район идет в первый пилот, синий можно добавить вторым, красный дорогой для входа.</p>
-                    </div>
-                """
-            )
-            render_region_map(region_name)
-            render_map_legend(region_name)
-
-    with summary_col:
-        with st.container(border=True, key="rd_summary_panel"):
-            html_block(
-                f"""
-                    <div class="rd-panel-title">Для пользователя <span>результат расчета</span></div>
-                    <div class="rd-summary"><strong>{escape(launch_label)}</strong><p>Первый район: {escape(region.district)}. Учитываем спрос, конкурентов и ограничение бюджета: {escape(sector.weak_spot.lower())}.</p></div>
-                    <div class="rd-tag-row">
-                        <span>Отзывы и обсуждения +{region.social_growth}%</span>
-                        <span>Бюджет {budget} тыс. ₽</span>
-                        <span>{escape(region.district)}</span>
-                        <span>{escape(sector_name)}</span>
-                    </div>
-                    <div class="rd-panel-title" style="margin-top:14px;">Конкуренты в расчете <span>демо-слой</span></div>
-                    <div class="rd-source-list">{competitor_rows}</div>
-                    <div class="rd-panel-title" style="margin-top:14px;">Сигналы решения <span>почему так</span></div>
-                    <div class="rd-source-list">
-                        <div class="rd-source-item"><span>Район старта</span><span>{escape(region.district)}</span></div>
-                        <div class="rd-source-item"><span>Сигнал спроса</span><span>+{region.demand_growth}%</span></div>
-                        <div class="rd-source-item"><span>Плотность конкурентов</span><span>{escape(competition_label.lower())}</span></div>
-                        <div class="rd-source-item"><span>Фокус контроля</span><span>{escape(sector.weak_spot.lower())}</span></div>
-                    </div>
-                """
-            )
-
-    html_block(
+def render_usp() -> None:
+    html(
         """
-        <div class="rd-user-flow">
-            <div class="rd-user-flow-head">
-                <h3>Какие задачи закрывает прототип</h3>
-                <p>Один расчет показывает пользователю, где стартовать, кого учитывать и что контролировать в первые недели пилота.</p>
-            </div>
-            <div class="rd-flow-grid">
-                <div class="rd-flow-step"><span>Задача 01</span><strong>Оценить спрос</strong><p>Понять, хватает ли спроса для пилота в выбранном городе и сфере.</p></div>
-                <div class="rd-flow-step"><span>Задача 02</span><strong>Выбрать район старта</strong><p>Сравнить районы и не тратить первый бюджет на слишком дорогую точку входа.</p></div>
-                <div class="rd-flow-step"><span>Задача 03</span><strong>Увидеть конкурентов</strong><p>Понять, кто уже забирает спрос и чем эти игроки сильны.</p></div>
-                <div class="rd-flow-step"><span>Задача 04</span><strong>Собрать отчет</strong><p>Получить короткий вывод с районом, рисками, источниками и планом контроля.</p></div>
-            </div>
-        </div>
-        """
-    )
-
-
-def render_sources_and_cases() -> None:
-    html_block(
-        """
-        <section class="rd-section" id="sources">
+        <section class="rd-section" id="usp">
             <div class="rd-section-head">
                 <div>
-                    <div class="rd-eyebrow">Данные</div>
-                    <h2 class="rd-section-title">Какие данные попадают в расчет</h2>
+                    <div class="rd-eyebrow">УТП</div>
+                    <h2 class="rd-section-title">Не слой данных, а <em>готовое решение</em></h2>
                 </div>
-                <p>Источники нужны не для витрины, а чтобы объяснить рекомендацию и собрать отчет.</p>
+                <p>Ключевое отличие — балл и объяснение, почему конкретное доступное помещение подходит конкретному типу бизнеса.</p>
             </div>
-            <div class="rd-card-grid-4 rd-compact-grid">
-                <div class="rd-card"><div class="num">Статистика</div><h3>Емкость района</h3><p>Население, доходы, занятость и районы роста.</p></div>
-                <div class="rd-card blue"><div class="num">Спрос</div><h3>Запросы</h3><p>Динамика поиска, сезонность и регулярность потребности.</p></div>
-                <div class="rd-card amber"><div class="num">Отзывы</div><h3>Боли клиентов</h3><p>Скорость, цена, график, качество и частые жалобы.</p></div>
-                <div class="rd-card green"><div class="num">Конкуренты</div><h3>Игроки рынка</h3><p>Карты, выдача, сайты, акции и частота отзывов.</p></div>
-            </div>
-        </section>
-        <section class="rd-section" id="cases">
-            <div class="rd-section-head">
-                <div>
-                    <div class="rd-eyebrow">MVP и запуск</div>
-                    <h2 class="rd-section-title">Что продается в MVP</h2>
-                </div>
-                <p>Покупка начинается с отчета по одной локации и растет в регулярный кабинет.</p>
-            </div>
-            <div class="rd-evidence-grid">
-                <div class="rd-evidence-card"><span>Отчет</span><h3>Одна локация</h3><p>Район старта, конкуренты, спрос, риски и источники.</p></div>
-                <div class="rd-evidence-card"><span>Кабинет</span><h3>Повторные расчеты</h3><p>Новые районы, города, ниши и сравнение сценариев.</p></div>
-                <div class="rd-evidence-card"><span>Мониторинг</span><h3>Конкуренты и отзывы</h3><p>Еженедельные изменения рынка для команд роста.</p></div>
-                <div class="rd-evidence-card"><span>Экспорт</span><h3>Отчет для команды</h3><p>Короткий документ для обсуждения бюджета пилота.</p></div>
-                <div class="rd-evidence-card"><span>Цена</span><h3>19&nbsp;900&nbsp;₽ → 29&nbsp;900&nbsp;₽</h3><p>Разовый вход и подписка для регулярных запусков.</p></div>
-                <div class="rd-evidence-card"><span>Покупатель</span><h3>Владелец / рост / маркетинг</h3><p>Тот, кто отвечает за первый бюджет запуска.</p></div>
+            <div class="rd-grid-3">
+                <div class="rd-card amber"><div class="tag">движок решений</div><strong>Топ объектов, а не сводка</strong><p>Пользователь получает ранжирование, причины, риски и следующий шаг — без аналитика в штате.</p></div>
+                <div class="rd-card teal"><div class="tag">парсер аренды</div><strong>Помещения прямо в выдаче</strong><p>Система подтягивает объявления аренды и проверяет площадь, ставку, формат, витрину и риск входа.</p></div>
+                <div class="rd-card"><div class="tag">для малого офлайна</div><strong>Не корпоративная аналитика</strong><p>Интерфейс и цена рассчитаны на предпринимателя с 1–3 точками, а не на корпоративный отдел.</p></div>
             </div>
         </section>
         """
     )
 
 
-def render_result() -> None:
-    html_block(
+def render_market() -> None:
+    html(
         """
-        <section class="rd-section" id="result">
+        <section class="rd-section" id="market">
             <div class="rd-section-head">
                 <div>
-                    <div class="rd-eyebrow">Результат</div>
-                    <h2 class="rd-section-title">На выходе — план пилота с рисками и ограничениями</h2>
+                    <div class="rd-eyebrow">Размер рынка</div>
+                    <h2 class="rd-section-title">Точек открывается <em>больше</em>, чем кто-то успевает считать локации</h2>
                 </div>
-                <p>Команда сохраняет контроль над решением, а сервис показывает, какие сигналы поддерживают сценарий и что важно контролировать в первые недели.</p>
+                <p>Чем больше новых кофеен, салонов и магазинов, тем больше разовых решений о локации — и людей, которым нужен быстрый ответ перед арендой.</p>
             </div>
-            <div class="rd-compare">
-                <div class="rd-compare-row"><div class="rd-compare-cell"><strong>Было</strong>3-8 часов на ручной сбор ссылок и таблиц</div><div class="rd-compare-cell"><strong>Стало</strong>15-30 минут до первой версии решения</div></div>
-                <div class="rd-compare-row"><div class="rd-compare-cell"><strong>Было</strong>“в Казани есть спрос”</div><div class="rd-compare-cell"><strong>Стало</strong>“начать с Ново-Савиновского района, центр отложить”</div></div>
-                <div class="rd-compare-row"><div class="rd-compare-cell"><strong>Было</strong>спор о том, каким источникам верить</div><div class="rd-compare-cell"><strong>Стало</strong>видно, где данные сходятся и что добавить в ручной контроль</div></div>
-                <div class="rd-compare-row"><div class="rd-compare-cell"><strong>Было</strong>решение без понятного критерия успеха</div><div class="rd-compare-cell"><strong>Стало</strong>пилот на 6-8 недель с метриками спроса и стоимости заявки</div></div>
+            <div class="rd-stats">
+                <div class="rd-stat"><b>273,5 млрд ₽</b><span>оборот рынка кофеен и кафе-кондитерских РФ за 2025 год, рост ~22% за год.</span></div>
+                <div class="rd-stat"><b>249 тыс.</b><span>точек общепита в РФ на конец 2024 года против 198 тыс. в 2020-м.</span></div>
+                <div class="rd-stat"><b>76 400</b><span>салонов красоты и барбершопов в РФ, +12% год к году по геоданным.</span></div>
             </div>
+            <div class="rd-grid-3" style="margin-top:14px;">
+                <div class="rd-card"><div class="tag">TAM</div><strong>Все офлайн-точки услуг и торговли</strong><p>Тысячи кофеен, салонов, барбершопов и магазинов открываются и переезжают в городах РФ ежегодно.</p></div>
+                <div class="rd-card teal"><div class="tag">SAM</div><strong>1–3 точки без аналитики</strong><p>Сегмент без аналитической команды, где цена ошибки выше готовности платить за корпоративную геоаналитику.</p></div>
+                <div class="rd-card amber"><div class="tag">SOM · пилот</div><strong>3 города, 2 ниши</strong><p>Москва, Петербург, Казань — кофейни и салоны красоты. Цель года: сотни платных отчётов и первые пилоты с сетями.</p></div>
+            </div>
+            <p class="rd-src">источники: РБК Исследования рынков и открытые геоданные сервисов карт, 2025 · цифры — ориентир масштаба, не прогноз выручки RealDemand.</p>
         </section>
         """
     )
 
 
 def render_competition() -> None:
-    html_block(
+    html(
         """
-        <section class="rd-section" id="competition">
+        <section class="rd-section" id="rivals">
             <div class="rd-section-head">
                 <div>
-                    <div class="rd-eyebrow">Конкуренты</div>
-                    <h2 class="rd-section-title">Основной конкурент — ручная аналитика, а не другой дашборд</h2>
+                    <div class="rd-eyebrow">Конкуренты и альтернативы</div>
+                    <h2 class="rd-section-title">Против Яндекс, Сбер и <em>Геоинтеллект</em></h2>
                 </div>
-                <p>Покупатель уже решает задачу через Excel, карты, агентства или внутреннего аналитика. Продукт должен выигрывать скоростью, повторяемостью и конкретным выводом.</p>
+                <p>Сильные геоаналитические платформы. Наша ставка — узкий сценарий для малого бизнеса: довести не до района, а до конкретного доступного помещения.</p>
             </div>
             <div class="rd-table">
-                <div class="rd-table-row header">
-                    <div class="rd-table-cell">Альтернатива</div>
-                    <div class="rd-table-cell">Что дает</div>
-                    <div class="rd-table-cell">Ограничение</div>
-                    <div class="rd-table-cell">Как отличается RealDemand</div>
+                <div class="rd-trow head">
+                    <div class="rd-tcell">Игрок</div>
+                    <div class="rd-tcell">Что даёт</div>
+                    <div class="rd-tcell">Ограничение</div>
+                    <div class="rd-tcell">Где выигрываем</div>
                 </div>
-                <div class="rd-table-row">
-                    <div class="rd-table-cell"><strong>Ручная аналитика</strong>Excel, Wordstat, 2GIS, карты, отзывы</div>
-                    <div class="rd-table-cell">Низкий порог доступа к источникам</div>
-                    <div class="rd-table-cell">Долго, трудно стандартизировать, нет единой логики вывода</div>
-                    <div class="rd-table-cell">Собирает сигналы в индекс, карту районов и отчет с рисками</div>
+                <div class="rd-trow">
+                    <div class="rd-tcell"><strong>Яндекс Геоаналитика</strong>геоданные карт</div>
+                    <div class="rd-tcell">Трафик, демография, организации и поисковые запросы по категориям.</div>
+                    <div class="rd-tcell">Сильный анализ территории, но не сценарий под выбор конкретного арендного объекта.</div>
+                    <div class="rd-tcell win">Парсинг объявлений, проверка помещения и путь до выбора объекта.</div>
                 </div>
-                <div class="rd-table-row">
-                    <div class="rd-table-cell"><strong>Исследовательские агентства</strong>Кастомный отчет под задачу</div>
-                    <div class="rd-table-cell">Глубокая экспертиза и интервью</div>
-                    <div class="rd-table-cell">Дорого и медленно для регулярных быстрых проверок</div>
-                    <div class="rd-table-cell">Дает первичный вывод за меньший чек и подходит для повторных сценариев</div>
+                <div class="rd-trow">
+                    <div class="rd-tcell"><strong>Сбер Геоаналитика</strong>оценка локаций</div>
+                    <div class="rd-tcell">Покупатели, конкуренты, трафик, недвижимость, прогноз спроса и оборота.</div>
+                    <div class="rd-tcell">Мощная корпоративная платформа с индивидуальной ценой и широкими задачами.</div>
+                    <div class="rd-tcell win">Лёгкий продукт для первого выбора, разового отчёта и быстрого запуска.</div>
                 </div>
-                <div class="rd-table-row">
-                    <div class="rd-table-cell"><strong>BI и рыночные базы</strong>Дашборды и наборы данных</div>
-                    <div class="rd-table-cell">Много данных и визуализаций</div>
-                    <div class="rd-table-cell">Не всегда доводят до решения “где запускать пилот”</div>
-                    <div class="rd-table-cell">Фокусируется на сценарии запуска: район, бюджет, риск, источники</div>
-                </div>
-                <div class="rd-table-row">
-                    <div class="rd-table-cell"><strong>Внутренний аналитик</strong>Сбор данных внутри компании</div>
-                    <div class="rd-table-cell">Знает бизнес и контекст компании</div>
-                    <div class="rd-table-cell">Не масштабируется на много городов и ниш без процессов</div>
-                    <div class="rd-table-cell">Стандартизирует процесс и ускоряет подготовку решения</div>
+                <div class="rd-trow">
+                    <div class="rd-tcell"><strong>Геоинтеллект</strong>геомаркетинг и ГИС</div>
+                    <div class="rd-tcell">Геоотчёты, модели зон пригодности, кейсы для сетей, ритейла и государства.</div>
+                    <div class="rd-tcell">Зрелое решение для сложных задач — избыточно для предпринимателя с 1–3 точками.</div>
+                    <div class="rd-tcell win">Самостоятельный выбор помещения и объяснимая рекомендация под формат.</div>
                 </div>
             </div>
         </section>
@@ -2784,103 +947,86 @@ def render_competition() -> None:
     )
 
 
-def render_pricing() -> None:
-    html_block(
+def render_money() -> None:
+    html(
         """
-        <section class="rd-section" id="economics">
+        <section class="rd-section" id="money">
             <div class="rd-section-head">
                 <div>
-                    <div class="rd-eyebrow">Монетизация и экономика</div>
-                    <h2 class="rd-section-title">Экономика строится через отчет и повторную подписку</h2>
+                    <div class="rd-eyebrow">Монетизация</div>
+                    <h2 class="rd-section-title">Редкое решение — <em>дорогая</em> разовая покупка</h2>
                 </div>
-                <p>Разовый отчет запускает продажу без длинного внедрения. Подписка подходит командам, которые регулярно выбирают новые районы, города или отслеживают конкурентов.</p>
+                <p>Локацию выбирают не каждый день, поэтому первая покупка — разовый отчёт по объектам. Сети и франшизы выбирают регулярно — им подходит подписка и продажи сетям.</p>
             </div>
-            <div class="rd-price-grid">
-                <div class="rd-price"><h3>Разовый отчет</h3><div class="rd-price-value">19&nbsp;900&nbsp;₽</div><div class="rd-price-sub">за 1 исследование</div><ul><li>Один город, район или категория</li><li>Короткий отчет с источниками и рисками</li><li>Низкий вход для первого платного пилота</li></ul><div class="rd-badge">Вход в продукт</div></div>
-                <div class="rd-price"><h3>SaaS Start</h3><div class="rd-price-value">14&nbsp;900&nbsp;₽</div><div class="rd-price-sub">в месяц</div><ul><li>10 анализов в месяц</li><li>1 пользователь</li><li>Базовый индекс сферы</li><li>Экспорт отчета</li></ul><div class="rd-badge">Малые команды</div></div>
-                <div class="rd-price featured"><div class="rd-badge">Основная модель</div><h3>SaaS Growth</h3><div class="rd-price-value">29&nbsp;900&nbsp;₽</div><div class="rd-price-sub">в месяц</div><ul><li>30 анализов в месяц</li><li>3 пользователя</li><li>Карта спроса и конкурентов</li><li>Еженедельный мониторинг отзывов</li></ul><div class="rd-badge">Повторяемая выручка</div></div>
-                <div class="rd-price"><h3>API / Поток данных</h3><div class="rd-price-value">от&nbsp;49&nbsp;900&nbsp;₽</div><div class="rd-price-sub">в месяц</div><ul><li>Интеграция с BI/CRM</li><li>Доступ к индексам и данным</li><li>Еженедельное обновление данных</li></ul><div class="rd-badge">Для зрелых команд</div></div>
-                <div class="rd-price"><h3>Внедрение</h3><div class="rd-price-value">от&nbsp;249&nbsp;900&nbsp;₽</div><div class="rd-price-sub">настройка + поддержка</div><ul><li>Внутренний контур</li><li>Источники под компанию</li><li>Роли, доступы и безопасность</li></ul><div class="rd-badge">Для сетей</div></div>
+            <div class="rd-grid-3">
+                <div class="rd-price feature"><div class="tag">разовый отчёт</div><b>4 900 ₽</b><p>Район и 5–10 помещений: балл, конкуренты, спрос, ставка аренды, риски и объяснение.</p></div>
+                <div class="rd-price"><div class="tag">подписка · малый бизнес</div><b>5 000–50 000 ₽/мес</b><p>Мониторинг объявлений, сравнение адресов, сохранение сценариев и выгрузка.</p></div>
+                <div class="rd-price"><div class="tag">сети · франшизы</div><b>от 149 000 ₽</b><p>Пакеты городов, доступ по API, командные роли, мониторинг объектов и настраиваемые веса модели.</p></div>
             </div>
-            <div class="rd-unit-model">
-                <div><span>Старт продаж</span><strong>2-3 оплаченных отчета</strong></div>
-                <div><span>Переход в MRR</span><strong>3-5 команд на подписке</strong></div>
-                <div><span>Метрики</span><strong>CAC, маржа и повтор</strong></div>
-                <div><span>Качество роста</span><strong>повторные запросы и маржа</strong></div>
+            <div class="rd-grid-4" style="margin-top:14px;">
+                <div class="rd-card"><div class="tag">почему 4 900 ₽</div><strong>Якорь — цена ошибки</strong><p>В 200+ раз дешевле потерь от неверной аренды и дешевле разового консультанта.</p></div>
+                <div class="rd-card"><div class="tag">почему подписка</div><strong>Повтор</strong><p>Для тех, кто открывает несколько точек подряд.</p></div>
+                <div class="rd-card"><div class="tag">маржа</div><strong>Растёт</strong><p>После автоматизации парсинга себестоимость отчёта падает.</p></div>
+                <div class="rd-card"><div class="tag">расширение</div><strong>Доступ по API</strong><p>Данные встраиваются в процессы сетей и франшиз.</p></div>
             </div>
         </section>
         """
     )
 
 
-def render_faq_and_final() -> None:
-    html_block(
+def render_mvp() -> None:
+    html(
         """
-        <section class="rd-section" id="investment">
+        <section class="rd-section" id="mvp">
             <div class="rd-section-head">
                 <div>
-                    <div class="rd-eyebrow">Бизнес-логика</div>
-                    <h2 class="rd-section-title">Путь от разового отчета к регулярной выручке</h2>
+                    <div class="rd-eyebrow">MVP · метрики · риски</div>
+                    <h2 class="rd-section-title">MVP проверяет не карту, а <em>готовность платить</em></h2>
                 </div>
-                <p>У продукта есть прикладная B2B-задача, понятный покупатель, цена входа и сценарий расширения: новые города, районы, вертикали и мониторинг конкурентов.</p>
+                <p>Запуск узкий: 2 ниши, 3 города, полуавтоматический сбор геоданных и парсинг объявлений коммерческой аренды.</p>
             </div>
-            <div class="rd-investor-grid">
-                <div class="rd-investor-left">
-                    <div class="rd-investor-card featured">
-                        <span>Ключевая логика</span>
-                        <h3>Разовый отчет снижает барьер покупки, подписка монетизирует повторные запуски</h3>
-                        <p>Сначала клиент покупает решение по одной локации, затем использует сервис для новых рынков и регулярного мониторинга.</p>
-                    </div>
-                    <div class="rd-investor-card">
-                        <span>Первые продажи</span>
-                        <h3>2-3 отчета без скидки</h3>
-                        <p>Первые сделки показывают спрос на платный вход и помогают настроить пакет, источники и аргументы для подписки.</p>
-                    </div>
-                </div>
-                <div class="rd-stacked-cards">
-                    <div class="rd-investor-card"><span>Механика роста</span><h3>Платный вход и повторная задача</h3><p>Клиент оплачивает отчет, использует вывод в решении и возвращается с новой локацией.</p></div>
-                    <div class="rd-investor-card"><span>Переход в подписку</span><h3>Отчет становится входом в SaaS</h3><p>Регулярные команды получают больше расчетов, мониторинг конкурентов и общий кабинет для команды.</p></div>
-                    <div class="rd-investor-card"><span>Контроль качества</span><h3>Автоматизация расчета и прозрачные источники</h3><p>Стабильный расчет и понятные источники поддерживают маржу и доверие клиента.</p></div>
-                </div>
+            <div class="rd-grid-3">
+                <div class="rd-card teal"><div class="tag">mvp</div><strong>Кофейни и салоны красоты</strong><p>Ниши с высокой зависимостью от места и понятными требованиями к помещению.</p></div>
+                <div class="rd-card"><div class="tag">данные</div><strong>Геосигналы + аренда</strong><p>Районные факторы, конкуренты и открытые объявления коммерческой недвижимости.</p></div>
+                <div class="rd-card amber"><div class="tag">ресурсы</div><strong>1,2–1,8 млн ₽</strong><p>3 месяца: продукт, разработка, парсер, данные, дизайн, первые продажи и интервью.</p></div>
+            </div>
+            <div class="rd-grid-4" style="margin-top:14px;">
+                <div class="rd-card"><div class="idx">М01</div><strong>Конверсия в платный отчёт</strong><p>Доля купивших отчёт после демо.</p></div>
+                <div class="rd-card"><div class="idx">М02</div><strong>Уверенность в решении</strong><p>Готовность показать отчёт партнёру или инвестору.</p></div>
+                <div class="rd-card"><div class="idx">М03</div><strong>Контакты по объектам</strong><p>Доля отчётов, после которых связались с арендодателем.</p></div>
+                <div class="rd-card"><div class="idx">М04</div><strong>Калибровка модели</strong><p>Сходимость балла с фактами по открытым точкам.</p></div>
+            </div>
+            <div class="rd-grid-2" style="margin-top:14px;">
+                <div class="rd-card coral"><div class="tag">риски</div><strong>Данные, копирование, юридика, цикл продаж</strong><p>Объявления дублируются и устаревают, крупные игроки могут скопировать аналитический слой, парсинг чужих площадок несёт юридический риск, а сделки с сетями закрываются медленно.</p></div>
+                <div class="rd-card teal"><div class="tag">как снижаем</div><strong>Гибрид данных, юр-проверка, разные циклы</strong><p>Несколько источников и удаление дублей; открытые и партнёрские данные вместо агрессивного сбора с чужих площадок; объяснимый балл против копирования; короткий разовый отчёт кормит компанию, пока зреют пилоты с сетями.</p></div>
             </div>
         </section>
-        <section class="rd-section" id="faq">
-            <div class="rd-faq-grid">
-                <div>
-                    <div class="rd-eyebrow">Ключевые вопросы</div>
-                    <div class="rd-section-head" style="display:block; margin-bottom:0;">
-                        <h2 class="rd-section-title">Ключевые вопросы по проекту</h2>
-                    </div>
-                </div>
-                <div class="rd-faq-list">
-                    <details class="rd-faq" open><summary>Кто целевая аудитория?</summary><p>Команды, которые отвечают за запуск в новом городе, районе или нише: владельцы МСБ, франчайзи, продуктовые команды, команды роста и маркетинг локальных сервисов.</p></details>
-                    <details class="rd-faq"><summary>В чем отличие продукта?</summary><p>RealDemand связывает данные с решением: индекс пилота, район старта, риск бюджета, источники и ограничения.</p></details>
-                    <details class="rd-faq"><summary>Кто конкуренты?</summary><p>Ручная аналитика, исследовательские агентства, BI/рыночные базы и внутренние аналитики. Отличие - фокус на быстром сценарии запуска.</p></details>
-                    <details class="rd-faq"><summary>Как зарабатывает продукт?</summary><p>Разовый отчет за 19&nbsp;900&nbsp;₽, SaaS-подписки 14&nbsp;900/29&nbsp;900&nbsp;₽ в месяц, API от 49&nbsp;900&nbsp;₽ и внедрение от 249&nbsp;900&nbsp;₽.</p></details>
-                    <details class="rd-faq"><summary>Какие метрики показывают прогресс?</summary><p>Оплаченные отчеты, повторные запросы, переход в подписку, маржа отчета и стоимость привлечения клиента.</p></details>
-                    <details class="rd-faq"><summary>Какая ближайшая цель продаж?</summary><p>2-3 оплаченных отчета и 1-2 повторных запроса от тех же или похожих клиентов.</p></details>
-                    <details class="rd-faq"><summary>Какой MVP?</summary><p>Веб-кабинет на 1-2 вертикалях и 3-5 городах: вводные, индекс, карта районов, объяснение факторов и экспорт короткого отчета.</p></details>
-                </div>
-            </div>
+        """
+    )
+
+
+def render_investment() -> None:
+    html(
+        """
+        <section class="rd-section" id="invest">
             <div class="rd-final">
+                <span class="rd-tick tl"></span><span class="rd-tick tr"></span>
+                <span class="rd-tick bl"></span><span class="rd-tick br"></span>
                 <div>
-                    <div class="rd-eyebrow" style="background:#fff;">Финальный вывод</div>
-                    <h2 class="rd-section-title">RealDemand упакован как B2B-продукт с платным входом</h2>
-                    <p>Следующий шаг — первые отчеты, сбор обратной связи и перевод регулярных сценариев в подписку.</p>
+                    <div class="rd-eyebrow">Инвесторам</div>
+                    <h2>Почему в RealDemand стоит <em>поверить</em></h2>
+                    <p>Рынок офлайн-бизнеса большой, цена ошибки локации высокая, а инструменты чаще показывают данные, чем помогают выбрать помещение. Мы стартуем с платного отчёта по объектам и растём в подписку, продажи сетям и интеграции по API.</p>
+                    <div class="rd-roadmap">
+                        <span>01 → 3 города, 2 ниши</span>
+                        <span>02 → подписка для сетей 1–3 точек</span>
+                        <span>03 → интеграции по API и решения под брендом партнёра</span>
+                    </div>
                 </div>
-                <a class="rd-btn" href="#top">Вернуться к началу</a>
-            </div>
-            <div class="rd-footer-nav">
-                <a class="rd-brand" href="#top"><span class="rd-mark"></span><span>RealDemand</span></a>
-                <div class="rd-footer-links">
-                    <a href="#market">Рынок</a>
-                    <a href="#audience">Аудитория</a>
-                    <a href="#problem">Проблема</a>
-                    <a href="#solution">Решение</a>
-                    <a href="#competition">Конкуренты</a>
-                    <a href="#economics">Экономика</a>
+                <div class="rd-final-box">
+                    <div class="tag">следующий шаг</div>
+                    <strong>20 отчётов с объектами аренды и 3 пилота с сетями за 3 месяца</strong>
+                    <a class="rd-btn" href="mailto:team@realdemand.example">Написать команде →</a>
                 </div>
-                <a class="rd-btn secondary" href="#investment">Бизнес-логика</a>
             </div>
         </section>
         """
@@ -2889,22 +1035,23 @@ def render_faq_and_final() -> None:
 
 def main() -> None:
     st.set_page_config(
-        page_title="RealDemand - обзор продукта",
+        page_title="RealDemand — гео-оценка локаций для офлайн-бизнеса",
         layout="wide",
         initial_sidebar_state="collapsed",
     )
-
     render_css()
     render_nav()
     render_hero()
-    render_market_and_audience()
     render_problem()
-    render_solution_logic()
-    render_interactive_demo()
-    render_sources_and_cases()
+    render_audience()
+    render_architecture()
+    render_demo()
+    render_usp()
+    render_market()
     render_competition()
-    render_pricing()
-    render_faq_and_final()
+    render_money()
+    render_mvp()
+    render_investment()
 
 
 if __name__ == "__main__":
