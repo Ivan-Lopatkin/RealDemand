@@ -123,7 +123,11 @@ def ranked_locations(city: str, business_type: str, budget: int) -> list[tuple[L
 
 
 def html(markup: str) -> None:
-    st.markdown(markup, unsafe_allow_html=True)
+    # Streamlit рендерит через Markdown: строки с отступом 4+ пробела он
+    # считает блоком кода. Снимаем ведущие пробелы, чтобы HTML (включая SVG
+    # карты в инструменте) проходил как разметка, а не как <pre><code>.
+    cleaned = "\n".join(line.lstrip() for line in markup.splitlines())
+    st.markdown(cleaned, unsafe_allow_html=True)
 
 
 
