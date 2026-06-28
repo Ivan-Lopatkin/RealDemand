@@ -334,26 +334,9 @@ def render_css() -> None:
 
         .rd-map {
             position: relative; height: 268px; border-radius: var(--radius);
-            border: 1px solid var(--line); overflow: hidden;
-            background:
-                radial-gradient(120px 120px at 30% 42%, rgba(242,169,59,.34), transparent 70%),
-                radial-gradient(150px 150px at 66% 38%, rgba(84,211,196,.20), transparent 72%),
-                radial-gradient(110px 110px at 54% 78%, rgba(255,111,94,.16), transparent 72%),
-                linear-gradient(rgba(255,255,255,.045) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(255,255,255,.045) 1px, transparent 1px),
-                #0a0d12;
-            background-size: auto, auto, auto, 30px 30px, 30px 30px, auto;
+            border: 1px solid var(--line); overflow: hidden; background: #0a0d12;
         }
-        .rd-contour {
-            position: absolute; border: 1px solid rgba(242,169,59,.22);
-            border-radius: 50%;
-        }
-        .rd-contour.c1 { inset: 78px 58% 70px 22%; }
-        .rd-contour.c2 { inset: 62px 50% 52px 12%; border-color: rgba(242,169,59,.13); }
-        .rd-plot {
-            position: absolute; inset: 26px 30px; border: 1px dashed rgba(255,255,255,.14);
-            border-radius: 2px; transform: rotate(-6deg);
-        }
+        .rd-map-svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
         .rd-node {
             position: absolute; width: 16px; height: 16px; transform: rotate(45deg);
             border: 1.5px solid #0a0d12; border-radius: 3px;
@@ -366,7 +349,7 @@ def render_css() -> None:
         .rd-node.n1 { left: 28%; top: 40%; background: var(--amber); width: 22px; height: 22px;
             box-shadow: 0 0 0 5px rgba(242,169,59,.18); }
         .rd-node.n2 { left: 64%; top: 35%; background: var(--teal); }
-        .rd-node.n3 { left: 52%; top: 74%; background: var(--coral); }
+        .rd-node.n3 { left: 46%; top: 60%; background: var(--coral); }
 
         .rd-map-flag {
             position: absolute; left: 14px; bottom: 14px; right: 14px;
@@ -433,6 +416,33 @@ def render_css() -> None:
         .rd-grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
         .rd-grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
         .rd-grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+        .rd-grid-5 { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
+
+        /* ---------- горизонтальный конвейер из шагов ---------- */
+        .rd-flow { display: flex; align-items: stretch; gap: 0; }
+        .rd-flow-step {
+            flex: 1 1 0; min-width: 0; padding: 18px 16px;
+            border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel);
+        }
+        .rd-flow-step.key {
+            border-color: var(--amber-deep);
+            background: linear-gradient(160deg, rgba(242,169,59,.1), var(--panel) 58%);
+        }
+        .rd-flow-step .idx {
+            font-family: var(--mono); font-size: 11px; font-weight: 700;
+            letter-spacing: .12em; color: var(--muted);
+        }
+        .rd-flow-step.key .idx { color: var(--amber); }
+        .rd-flow-step strong {
+            display: block; margin: 11px 0 8px; font-family: var(--display);
+            font-size: 16px; font-weight: 600; line-height: 1.18; color: var(--paper);
+        }
+        .rd-flow-step .sub { color: var(--muted); font-size: 12.5px; line-height: 1.45; }
+        .rd-flow-step .sub b { color: var(--paper-dim); font-weight: 600; }
+        .rd-flow-arrow {
+            flex: 0 0 30px; display: grid; place-items: center;
+            color: var(--amber); font-family: var(--mono); font-size: 15px;
+        }
 
         .rd-card {
             position: relative; padding: 22px 20px; border: 1px solid var(--line);
@@ -462,6 +472,8 @@ def render_css() -> None:
             background: var(--panel); }
         .rd-stat b { display: block; font-family: var(--mono); font-weight: 700;
             font-size: 30px; color: var(--amber); letter-spacing: -.01em; }
+        .rd-stat strong { display: block; margin-top: 10px; font-family: var(--display);
+            font-size: 15px; font-weight: 600; color: var(--paper); line-height: 1.2; }
         .rd-stat span { display: block; margin-top: 8px; color: var(--muted); font-size: 13px; line-height: 1.5; }
 
         /* ---------- table ---------- */
@@ -516,6 +528,14 @@ def render_css() -> None:
             font-size: 21px; font-weight: 600; line-height: 1.2; color: var(--paper); }
 
         .rd-src { margin-top: 14px; font-family: var(--mono); font-size: 11px; color: var(--muted-2); line-height: 1.6; }
+
+        .rd-callout {
+            margin-top: 16px; padding: 22px 24px; border: 1px solid var(--amber-deep);
+            border-radius: var(--radius);
+            background: linear-gradient(160deg, rgba(242,169,59,.08), var(--panel) 60%);
+        }
+        .rd-callout .rd-eyebrow { margin-bottom: 10px; }
+        .rd-callout p { margin: 0; color: var(--paper-dim); font-size: 15px; line-height: 1.6; max-width: 920px; }
 
         /* ---------- streamlit demo widgets (dark theme) ---------- */
         [data-testid="stVerticalBlockBorderWrapper"] {
@@ -582,13 +602,18 @@ def render_css() -> None:
             .rd-section-head { gap: 12px; }
             .rd-section-head p { align-self: start; }
             .rd-grid-4 { grid-template-columns: repeat(2, 1fr); }
+            .rd-grid-5 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+        }
+        @media (max-width: 880px) {
+            .rd-flow { flex-direction: column; }
+            .rd-flow-arrow { flex: 0 0 26px; transform: rotate(90deg); }
         }
         @media (max-width: 680px) {
             .block-container { padding-left: 16px; padding-right: 16px; }
             .rd-nav { margin-left: -16px; margin-right: -16px; gap: 10px; padding: 12px 16px; }
             .rd-nav-links { display: none; }
             .rd-nav .rd-btn { padding: 0 13px; font-size: 12px; min-height: 40px; }
-            .rd-grid-2, .rd-grid-3, .rd-grid-4, .rd-stats, .rd-gauges, .rd-listings { grid-template-columns: 1fr; }
+            .rd-grid-2, .rd-grid-3, .rd-grid-4, .rd-grid-5, .rd-stats, .rd-gauges, .rd-listings { grid-template-columns: 1fr; }
             .rd-instrument { min-width: 0; }
             .rd-trow { grid-template-columns: 1fr; }
             .rd-tcell { border-left: 0; border-top: 1px solid var(--line); }
@@ -620,8 +645,90 @@ def render_nav() -> None:
     )
 
 
+def build_map_svg() -> str:
+    """Стилизованная карта города: кварталы, улицы, авеню, река и тепловые зоны спроса."""
+    W, H = 600, 300
+    col_edges = [0, 92, 198, 300, 408, 502, 600]
+    row_edges = [0, 78, 150, 226, 300]
+    gap = 11  # ширина улицы между кварталами
+
+    blocks = []
+    for ci in range(len(col_edges) - 1):
+        for ri in range(len(row_edges) - 1):
+            x0 = col_edges[ci] + gap / 2
+            y0 = row_edges[ri] + gap / 2
+            bw = col_edges[ci + 1] - col_edges[ci] - gap
+            bh = row_edges[ri + 1] - row_edges[ri] - gap
+            blocks.append(
+                f'<rect x="{x0:.0f}" y="{y0:.0f}" width="{bw:.0f}" height="{bh:.0f}" rx="2" '
+                f'fill="#141b25" stroke="#1f2934" stroke-width="1"/>'
+            )
+    # мелкая нарезка пары центральных кварталов на парцели
+    parcels = (
+        '<line x1="245" y1="89" x2="245" y2="139" stroke="#1f2934" stroke-width="1"/>'
+        '<line x1="206" y1="114" x2="294" y2="114" stroke="#1f2934" stroke-width="1"/>'
+        '<line x1="120" y1="89" x2="120" y2="139" stroke="#1f2934" stroke-width="1"/>'
+    )
+
+    # главные авеню (шире и светлее, поверх стыков кварталов)
+    avenues = (
+        f'<line x1="300" y1="-10" x2="300" y2="310" stroke="#2c3744" stroke-width="7"/>'
+        f'<line x1="-10" y1="150" x2="610" y2="150" stroke="#2c3744" stroke-width="7"/>'
+    )
+    diagonal = '<line x1="-30" y1="40" x2="560" y2="330" stroke="#26313d" stroke-width="9" stroke-linecap="round"/>'
+
+    river = (
+        '<path d="M -30 235 C 110 200 180 270 300 232 S 520 195 640 222" '
+        'fill="none" stroke="url(#riverG)" stroke-width="30" stroke-linecap="round"/>'
+        '<path d="M -30 235 C 110 200 180 270 300 232 S 520 195 640 222" '
+        'fill="none" stroke="rgba(84,211,196,.22)" stroke-width="2"/>'
+    )
+
+    heat = (
+        '<circle cx="168" cy="124" r="150" fill="url(#heatA)"/>'
+        '<circle cx="384" cy="108" r="120" fill="url(#heatB)"/>'
+        '<circle cx="276" cy="182" r="96" fill="url(#heatC)"/>'
+    )
+
+    return f"""
+    <svg class="rd-map-svg" viewBox="0 0 {W} {H}" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <defs>
+            <radialGradient id="heatA" cx="50%" cy="50%" r="50%">
+                <stop offset="0%" stop-color="rgba(242,169,59,.55)"/>
+                <stop offset="42%" stop-color="rgba(242,169,59,.16)"/>
+                <stop offset="100%" stop-color="rgba(242,169,59,0)"/>
+            </radialGradient>
+            <radialGradient id="heatB" cx="50%" cy="50%" r="50%">
+                <stop offset="0%" stop-color="rgba(84,211,196,.34)"/>
+                <stop offset="55%" stop-color="rgba(84,211,196,.08)"/>
+                <stop offset="100%" stop-color="rgba(84,211,196,0)"/>
+            </radialGradient>
+            <radialGradient id="heatC" cx="50%" cy="50%" r="50%">
+                <stop offset="0%" stop-color="rgba(255,111,94,.26)"/>
+                <stop offset="60%" stop-color="rgba(255,111,94,.06)"/>
+                <stop offset="100%" stop-color="rgba(255,111,94,0)"/>
+            </radialGradient>
+            <linearGradient id="riverG" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0%" stop-color="rgba(84,211,196,.05)"/>
+                <stop offset="50%" stop-color="rgba(84,211,196,.16)"/>
+                <stop offset="100%" stop-color="rgba(84,211,196,.05)"/>
+            </linearGradient>
+        </defs>
+        <rect width="{W}" height="{H}" fill="#0a0d12"/>
+        <g transform="rotate(-3 300 150)">
+            {''.join(blocks)}
+            {parcels}
+            {diagonal}
+            {avenues}
+            {river}
+        </g>
+        {heat}
+    </svg>
+    """
+
+
 def instrument_markup() -> str:
-    return """
+    return f"""
         <div class="rd-instrument">
             <span class="rd-tick tl"></span><span class="rd-tick tr"></span>
             <span class="rd-tick bl"></span><span class="rd-tick br"></span>
@@ -631,9 +738,7 @@ def instrument_markup() -> str:
             </div>
             <div class="rd-inst-body">
                 <div class="rd-map">
-                    <span class="rd-contour c2"></span>
-                    <span class="rd-contour c1"></span>
-                    <span class="rd-plot"></span>
+                    {build_map_svg()}
                     <span class="rd-node n1"><b>1</b></span>
                     <span class="rd-node n2"><b>2</b></span>
                     <span class="rd-node n3"><b>3</b></span>
@@ -670,21 +775,11 @@ def render_hero() -> None:
         <section class="rd-hero" id="top">
             <div class="rd-hero-copy">
                 <div class="rd-eyebrow">Гео-оценка для офлайн-бизнеса</div>
-                <h1 class="rd-h1">Где открыть точку, чтобы она <em>зарабатывала</em></h1>
-                <p class="rd-lead">RealDemand читает спрос, конкурентов, трафик и реальные объявления аренды, а потом ставит локации балл и говорит прямо: открывать здесь или искать дальше.</p>
+                <h1 class="rd-h1">От идеи <em>до запуска</em></h1>
+                <p class="rd-lead">RealDemand помогает запустить офлайн-точку осознанно: от выбора района и оценки спроса до сравнения помещений и понимания рисков перед стартом.</p>
                 <div class="rd-actions">
                     <a class="rd-btn" href="#demo">Запустить разбор →</a>
                     <a class="rd-btn ghost" href="#how">Как считаем</a>
-                </div>
-                <div class="rd-readout">
-                    <span class="dotwrap"></span>
-                    <span class="k">55.79°N 49.12°E</span>
-                    <span class="sep">/</span>
-                    <span class="v">КАЗАНЬ · КОФЕЙНЯ · 1.8 МЛН ₽</span>
-                    <span class="sep">→</span>
-                    <span class="v">БАЛЛ 91</span>
-                    <span class="sep">·</span>
-                    <span class="verdict">ОТКРЫВАТЬ</span>
                 </div>
             </div>
             <div>{instrument_markup()}</div>
@@ -707,14 +802,14 @@ def render_problem() -> None:
             <div class="rd-section-head">
                 <div>
                     <div class="rd-eyebrow">Проблема</div>
-                    <h2 class="rd-section-title">Локацию выбирают <em>на глаз</em> — и это самый дорогой риск запуска</h2>
+                    <h2 class="rd-section-title">От идеи до запуска слишком много решений — и почти все принимаются <em>на глаз</em></h2>
                 </div>
-                <p>Карты показывают данные, риелторы продают метры, объявления живут отдельно от аналитики. А вопрос предпринимателя простой: какое доступное помещение снять, чтобы точка зарабатывала?</p>
+                <p>Карты показывают точки на карте, объявления — свободные помещения, отзывы — мнение клиентов, а спрос и конкуренты приходится проверять отдельно. В итоге предприниматель сам собирает картину запуска: где открываться, какой формат выбрать и какую локацию рассматривать первой.</p>
             </div>
             <div class="rd-grid-3">
-                <div class="rd-card coral"><div class="tag">01 · разрыв</div><strong>Данных много, решения нет</strong><p>Карты, отзывы, Wordstat, объявления и статистика существуют — но свести их в один вывод приходится вручную.</p></div>
-                <div class="rd-card amber"><div class="tag">02 · поздно</div><strong>Ошибка видна после подписи</strong><p>Неудачный адрес проявляется уже после аренды, ремонта и найма — когда выйти почти невозможно.</p></div>
-                <div class="rd-card teal"><div class="tag">03 · отрыв</div><strong>Район ≠ помещение</strong><p>Даже сильный район бесполезен, если сейчас нет свободного объекта под нужную площадь, ставку и формат.</p></div>
+                <div class="rd-card coral"><div class="tag">01 · разрыв</div><strong>Данных много, единого вывода нет</strong><p>Спрос, конкуренты, трафик, отзывы и объявления существуют отдельно. Чтобы понять, где запускаться, их приходится вручную сводить в одно решение.</p></div>
+                <div class="rd-card amber"><div class="tag">02 · дорого</div><strong>Ошибка проявляется после старта</strong><p>Неверный район, слабый поток или неподходящее помещение становятся заметны уже после затрат на аренду, ремонт, команду и рекламу.</p></div>
+                <div class="rd-card teal"><div class="tag">03 · неочевидно</div><strong>Хороший район ≠ хороший запуск</strong><p>Даже перспективная зона может не подойти: рядом сильные конкуренты, не тот формат помещения, дорогой вход или недостаточный спрос для конкретной идеи.</p></div>
             </div>
         </section>
         """
@@ -730,19 +825,19 @@ def render_audience() -> None:
                     <div class="rd-eyebrow">Целевая аудитория</div>
                     <h2 class="rd-section-title">Предприниматель, открывающий <em>1–3 точки</em></h2>
                 </div>
-                <p>Кофейни, барбершопы, салоны красоты и небольшие магазины в городах РФ. Есть бюджет на запуск, но нет аналитического отдела и времени вручную мониторить аренду.</p>
+                <p>Кофейни, барбершопы, салоны красоты и небольшие магазины в городах РФ. Есть бюджет на запуск, но нет аналитического отдела и времени вручную сравнивать районы, трафик, конкурентов и помещения.</p>
             </div>
             <div class="rd-grid-4">
-                <div class="rd-card"><div class="tag">кто</div><strong>Фаундер или управляющий</strong><p>Сам решает по району, аренде и первому бюджету — без согласований.</p></div>
-                <div class="rd-card teal"><div class="tag">когда</div><strong>Перед подписью аренды</strong><p>На руках 2–5 помещений или район поиска. Нужно выбрать до необратимых затрат.</p></div>
-                <div class="rd-card amber"><div class="tag">почему больно</div><strong>Аренда фиксирует ошибку</strong><p>Плохой адрес не лечится рекламой и скидками — только переездом.</p></div>
-                <div class="rd-card"><div class="tag">проверка</div><strong>15–30 интервью</strong><p>Цель: понять, как выбирают место и каким данным реально доверяют.</p></div>
+                <div class="rd-card"><div class="tag">кто</div><strong>Фаундер или управляющий</strong><p>Сам принимает решение по району, формату точки и первому бюджету — без отдельной команды аналитиков.</p></div>
+                <div class="rd-card teal"><div class="tag">когда</div><strong>Перед выбором локации</strong><p>На руках есть идея, бюджет и несколько вариантов района или помещения. Нужно понять, где запускаться безопаснее.</p></div>
+                <div class="rd-card amber"><div class="tag">почему больно</div><strong>Ошибка дорого стоит</strong><p>Неверная локация проявляется уже после затрат на аренду, ремонт, команду и рекламу — когда быстро исправить решение сложно.</p></div>
+                <div class="rd-card"><div class="tag">вывод</div><strong>Нужен готовый ориентир</strong><p>Предпринимателю важен не набор карт и таблиц, а понятный ответ: какие локации рассматривать первыми, где риски выше и что проверить до запуска.</p></div>
             </div>
             <div style="margin:30px 0 18px;"><div class="rd-eyebrow">Честно: что подтверждено, а что гипотеза</div></div>
             <div class="rd-grid-3">
-                <div class="rd-card teal"><div class="tag">подтверждено</div><strong>Рынок растёт двузначно</strong><p>Оборот кофеен и кафе в РФ за 2025 год вырос на ~22%, число салонов красоты — на 12% год к году. Решений о локации становится больше.</p></div>
-                <div class="rd-card"><div class="tag">проверяем сейчас</div><strong>Где именно платят</strong><p>15–30 интервью: на каком шаге аренды предприниматель готов заплатить за внешний отчёт и каким источникам доверяет.</p></div>
-                <div class="rd-card coral"><div class="tag">гипотеза</div><strong>Цена 4 900 ₽</strong><p>Пока выведена из цены ошибки, а не из прямого опроса. Первая партия платных отчётов это проверит.</p></div>
+                <div class="rd-card teal"><div class="tag">подтверждено</div><strong>Решение о локации принимают вручную</strong><p>Предприниматели сравнивают районы, конкурентов, объявления и отзывы сами — чаще всего без единой методики.</p></div>
+                <div class="rd-card teal"><div class="tag">подтверждено</div><strong>Доверяют не одному источнику, а связке данных</strong><p>Отдельно карта, отзывы или объявление не дают уверенности. Ценность появляется, когда данные сведены в один вывод.</p></div>
+                <div class="rd-card coral"><div class="tag">гипотеза</div><strong>Цена 4 900 ₽</strong><p>Цена выведена из стоимости ошибки и будет проверяться на первой партии платных отчётов.</p></div>
             </div>
         </section>
         """
@@ -750,28 +845,34 @@ def render_audience() -> None:
 
 
 def render_architecture() -> None:
-    image_uri = image_data_uri(ARCHITECTURE_IMAGE)
-    image_markup = (
-        f'<div class="rd-architecture"><img src="{image_uri}" alt="Архитектура RealDemand"></div>'
-        if image_uri
-        else '<div class="rd-architecture fallback">схема архитектуры · assets/realdemand_architecture.jpg</div>'
-    )
     html(
-        f"""
+        """
         <section class="rd-section" id="how">
             <div class="rd-section-head">
                 <div>
                     <div class="rd-eyebrow">Как считаем</div>
-                    <h2 class="rd-section-title">Четыре слоя сигналов сводятся в <em>один балл</em> объекта</h2>
+                    <h2 class="rd-section-title">Данные сами по себе не запускают бизнес — мы превращаем их <em>в решение</em></h2>
                 </div>
-                <p>Единый конвейер: сбор геоданных, парсинг коммерческой аренды, оценка районов и помещений, визуализация top-3 и выбор объекта.</p>
+                <p>RealDemand показывает, где у идеи есть спрос, кто будет конкурировать рядом, какой поток можно получить и какие локации стоит рассматривать для первого запуска.</p>
             </div>
-            {image_markup}
-            <div class="rd-grid-4" style="margin-top:14px;">
-                <div class="rd-card"><div class="tag">спрос</div><strong>Wordstat и категория</strong><p>Частотность, районный интерес и близкие пользовательские боли.</p></div>
-                <div class="rd-card teal"><div class="tag">конкуренты</div><strong>Карты и 2GIS</strong><p>Плотность, рейтинг, отзывы, формат и расстояние до игроков.</p></div>
-                <div class="rd-card"><div class="tag">трафик</div><strong>Хабы и пешие потоки</strong><p>Транспорт, метро, парки, площади и точки притяжения.</p></div>
-                <div class="rd-card amber"><div class="tag">аренда</div><strong>Объявления и соответствие</strong><p>Парсим объекты, проверяем площадь, ставку, витрину и риск входа.</p></div>
+            <div class="rd-flow">
+                <div class="rd-flow-step"><div class="idx">01</div><strong>Идея бизнеса</strong><span class="sub">что и для кого открываем</span></div>
+                <div class="rd-flow-arrow">→</div>
+                <div class="rd-flow-step"><div class="idx">02</div><strong>Параметры запуска</strong><span class="sub">город, формат, бюджет</span></div>
+                <div class="rd-flow-arrow">→</div>
+                <div class="rd-flow-step key"><div class="idx">03</div><strong>Данные</strong><span class="sub"><b>спрос · конкуренты · проходимость · аудитория · локации</b></span></div>
+                <div class="rd-flow-arrow">→</div>
+                <div class="rd-flow-step"><div class="idx">04</div><strong>Скоринг запуска</strong><span class="sub">балл и причины по каждой зоне</span></div>
+                <div class="rd-flow-arrow">→</div>
+                <div class="rd-flow-step"><div class="idx">05</div><strong>План</strong><span class="sub">где начинать, что проверить, какие риски</span></div>
+            </div>
+            <div style="margin:30px 0 18px;"><div class="rd-eyebrow">Источники данных</div></div>
+            <div class="rd-grid-5">
+                <div class="rd-card"><div class="tag">спрос</div><strong>Wordstat</strong><p>интерес к категории и частотность запросов</p></div>
+                <div class="rd-card teal"><div class="tag">конкуренты</div><strong>Яндекс · 2GIS</strong><p>плотность, рейтинги, форматы и отзывы</p></div>
+                <div class="rd-card"><div class="tag">проходимость</div><strong>2GIS · Beeline</strong><p>пешие потоки и точки притяжения</p></div>
+                <div class="rd-card teal"><div class="tag">аудитория</div><strong>Beeline Big Data</strong><p>профиль и платёжеспособность района</p></div>
+                <div class="rd-card amber"><div class="tag">локации</div><strong>Аренда</strong><p>доступные помещения, ставка и площадь</p></div>
             </div>
         </section>
         """
@@ -864,14 +965,14 @@ def render_usp() -> None:
             <div class="rd-section-head">
                 <div>
                     <div class="rd-eyebrow">УТП</div>
-                    <h2 class="rd-section-title">Не слой данных, а <em>готовое решение</em></h2>
+                    <h2 class="rd-section-title">Не слой данных, а <em>решение</em>: где и как запускаться</h2>
                 </div>
-                <p>Ключевое отличие — балл и объяснение, почему конкретное доступное помещение подходит конкретному типу бизнеса.</p>
+                <p>RealDemand помогает предпринимателю пройти путь от бизнес-идеи к первой точке: понять, где есть спрос, какая аудитория рядом, кто уже конкурирует, какие локации доступны и с чего безопаснее начинать.</p>
             </div>
             <div class="rd-grid-3">
-                <div class="rd-card amber"><div class="tag">движок решений</div><strong>Топ объектов, а не сводка</strong><p>Пользователь получает ранжирование, причины, риски и следующий шаг — без аналитика в штате.</p></div>
-                <div class="rd-card teal"><div class="tag">парсер аренды</div><strong>Помещения прямо в выдаче</strong><p>Система подтягивает объявления аренды и проверяет площадь, ставку, формат, витрину и риск входа.</p></div>
-                <div class="rd-card"><div class="tag">для малого офлайна</div><strong>Не корпоративная аналитика</strong><p>Интерфейс и цена рассчитаны на предпринимателя с 1–3 точками, а не на корпоративный отдел.</p></div>
+                <div class="rd-card amber"><div class="tag">движок решений</div><strong>План запуска, а не набор карт</strong><p>Пользователь получает не слои данных, а понятный вывод: где начинать, какие риски учесть и что проверить перед стартом.</p></div>
+                <div class="rd-card teal"><div class="tag">данные в одном месте</div><strong>Спрос, трафик, аудитория и конкуренты</strong><p>Сервис объединяет поисковый спрос, геоданные, проходимость, соцдем, конкурентов и доступные варианты размещения.</p></div>
+                <div class="rd-card"><div class="tag">для малого офлайна</div><strong>Без аналитического отдела</strong><p>Интерфейс и цена рассчитаны на предпринимателя с 1–3 точками, которому нужно быстро принять решение перед запуском.</p></div>
             </div>
         </section>
         """
@@ -885,19 +986,19 @@ def render_market() -> None:
             <div class="rd-section-head">
                 <div>
                     <div class="rd-eyebrow">Размер рынка</div>
-                    <h2 class="rd-section-title">Точек открывается <em>больше</em>, чем кто-то успевает считать локации</h2>
+                    <h2 class="rd-section-title">Каждая новая офлайн-точка — это <em>решение о локации</em></h2>
                 </div>
-                <p>Чем больше новых кофеен, салонов и магазинов, тем больше разовых решений о локации — и людей, которым нужен быстрый ответ перед арендой.</p>
+                <p>Рынок не ограничивается кофейнями или салонами. Любой предприниматель, который открывает точку, переезжает или тестирует новый район, принимает дорогое решение: где запускаться, какой формат выбрать и какие риски проверить до старта.</p>
             </div>
             <div class="rd-stats">
-                <div class="rd-stat"><b>273,5 млрд ₽</b><span>оборот рынка кофеен и кафе-кондитерских РФ за 2025 год, рост ~22% за год.</span></div>
-                <div class="rd-stat"><b>249 тыс.</b><span>точек общепита в РФ на конец 2024 года против 198 тыс. в 2020-м.</span></div>
-                <div class="rd-stat"><b>76 400</b><span>салонов красоты и барбершопов в РФ, +12% год к году по геоданным.</span></div>
+                <div class="rd-stat"><b>273,5 млрд ₽</b><strong>рынок кофеен и кафе-кондитерских</strong><span>Один из первых сегментов для проверки: много открытий, высокая зависимость от трафика и сильная роль локации.</span></div>
+                <div class="rd-stat"><b>249 тыс.</b><strong>точек общепита в РФ</strong><span>Большой офлайн-сегмент, где выбор места напрямую влияет на выручку, поток и окупаемость запуска.</span></div>
+                <div class="rd-stat"><b>76 400</b><strong>салонов красоты и барбершопов</strong><span>Второй приоритетный сегмент: локальный спрос, конкуренция рядом и зависимость от района.</span></div>
             </div>
             <div class="rd-grid-3" style="margin-top:14px;">
-                <div class="rd-card"><div class="tag">TAM</div><strong>Все офлайн-точки услуг и торговли</strong><p>Тысячи кофеен, салонов, барбершопов и магазинов открываются и переезжают в городах РФ ежегодно.</p></div>
-                <div class="rd-card teal"><div class="tag">SAM</div><strong>1–3 точки без аналитики</strong><p>Сегмент без аналитической команды, где цена ошибки выше готовности платить за корпоративную геоаналитику.</p></div>
-                <div class="rd-card amber"><div class="tag">SOM · пилот</div><strong>3 города, 2 ниши</strong><p>Москва, Петербург, Казань — кофейни и салоны красоты. Цель года: сотни платных отчётов и первые пилоты с сетями.</p></div>
+                <div class="rd-card"><div class="tag">TAM</div><strong>Офлайн-услуги и торговля</strong><p>Кофейни, салоны, барбершопы, магазины, студии и другие бизнесы, которым нужно выбирать место для запуска.</p></div>
+                <div class="rd-card teal"><div class="tag">SAM</div><strong>Предприниматели с 1–3 точками</strong><p>Сегмент без аналитического отдела: решение о локации принимает сам владелец или управляющий.</p></div>
+                <div class="rd-card amber"><div class="tag">SOM · пилот</div><strong>3 города, 2 ниши</strong><p>Москва, Санкт-Петербург, Казань. Первые ниши: кофейни и салоны красоты. Цель — платные отчёты и первые повторные запросы.</p></div>
             </div>
             <p class="rd-src">источники: РБК Исследования рынков и открытые геоданные сервисов карт, 2025 · цифры — ориентир масштаба, не прогноз выручки RealDemand.</p>
         </section>
@@ -912,9 +1013,9 @@ def render_competition() -> None:
             <div class="rd-section-head">
                 <div>
                     <div class="rd-eyebrow">Конкуренты и альтернативы</div>
-                    <h2 class="rd-section-title">Против Яндекс, Сбер и <em>Геоинтеллект</em></h2>
+                    <h2 class="rd-section-title">Сильные данные есть у многих. Решение о запуске всё равно собирают <em>вручную</em></h2>
                 </div>
-                <p>Сильные геоаналитические платформы. Наша ставка — узкий сценарий для малого бизнеса: довести не до района, а до конкретного доступного помещения.</p>
+                <p>Яндекс, Сбер, Геоинтеллект и другие геосервисы дают отдельные слои: трафик, аудиторию, конкурентов, районы и объекты. RealDemand собирает эти сигналы в один сценарий для малого бизнеса: от идеи и выбора района до оценки локации, рисков и плана запуска.</p>
             </div>
             <div class="rd-table">
                 <div class="rd-trow head">
@@ -925,22 +1026,32 @@ def render_competition() -> None:
                 </div>
                 <div class="rd-trow">
                     <div class="rd-tcell"><strong>Яндекс Геоаналитика</strong>геоданные карт</div>
-                    <div class="rd-tcell">Трафик, демография, организации и поисковые запросы по категориям.</div>
-                    <div class="rd-tcell">Сильный анализ территории, но не сценарий под выбор конкретного арендного объекта.</div>
-                    <div class="rd-tcell win">Парсинг объявлений, проверка помещения и путь до выбора объекта.</div>
+                    <div class="rd-tcell">Геоданные, организации, поисковый спрос, трафик и аудитория по районам.</div>
+                    <div class="rd-tcell">Хорошо показывает территорию, но не ведёт предпринимателя от идеи к решению о запуске.</div>
+                    <div class="rd-tcell win">Даём понятный вывод: где начинать, какие риски проверить и какие локации рассматривать первыми.</div>
                 </div>
                 <div class="rd-trow">
                     <div class="rd-tcell"><strong>Сбер Геоаналитика</strong>оценка локаций</div>
                     <div class="rd-tcell">Покупатели, конкуренты, трафик, недвижимость, прогноз спроса и оборота.</div>
-                    <div class="rd-tcell">Мощная корпоративная платформа с индивидуальной ценой и широкими задачами.</div>
-                    <div class="rd-tcell win">Лёгкий продукт для первого выбора, разового отчёта и быстрого запуска.</div>
+                    <div class="rd-tcell">Сильная корпоративная аналитика, но тяжёлая для предпринимателя с 1–3 точками.</div>
+                    <div class="rd-tcell win">Делаем лёгкий продукт с понятной ценой, разовым отчётом и быстрым сценарием запуска.</div>
                 </div>
                 <div class="rd-trow">
                     <div class="rd-tcell"><strong>Геоинтеллект</strong>геомаркетинг и ГИС</div>
-                    <div class="rd-tcell">Геоотчёты, модели зон пригодности, кейсы для сетей, ритейла и государства.</div>
-                    <div class="rd-tcell">Зрелое решение для сложных задач — избыточно для предпринимателя с 1–3 точками.</div>
-                    <div class="rd-tcell win">Самостоятельный выбор помещения и объяснимая рекомендация под формат.</div>
+                    <div class="rd-tcell">Геомаркетинг, ГИС-модели, зоны пригодности, отчёты для сетей и крупных задач.</div>
+                    <div class="rd-tcell">Зрелое решение для сложной аналитики, избыточное для первого запуска малого бизнеса.</div>
+                    <div class="rd-tcell win">Упрощаем путь: идея → район → аудитория → конкуренты → локации → план действий.</div>
                 </div>
+                <div class="rd-trow">
+                    <div class="rd-tcell"><strong>Риелторы и ручной поиск</strong>поиск помещений и аренда</div>
+                    <div class="rd-tcell">Помогают найти свободные помещения и договориться по аренде.</div>
+                    <div class="rd-tcell">Не отвечают, есть ли в этой локации спрос, нужная аудитория и достаточный поток.</div>
+                    <div class="rd-tcell win">Соединяем объявления с рыночными данными и показываем риски запуска до решения.</div>
+                </div>
+            </div>
+            <div class="rd-callout">
+                <div class="rd-eyebrow">Наше отличие</div>
+                <p>RealDemand не пытается заменить большие геоаналитические платформы. Мы закрываем более узкий и прикладной сценарий: помочь предпринимателю без аналитического отдела быстро понять, где запускаться, почему именно там и что проверить перед стартом.</p>
             </div>
         </section>
         """
